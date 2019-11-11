@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="VcsDirectoryMappings">
+    <mapping directory="$PROJECT_DIR$/src/github.com/armon/go-metrics" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/src/github.com/boltdb/bolt" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/src/github.com/go-redis/redis" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/src/github.com/google/btree" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/src/github.com/hashicorp/errwrap" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/src/github.com/hashicorp/go-immutable-radix" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/src/github.com/hashicorp/go-msgpack" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/src/github.com/hashicorp/go-multierror" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/src/github.com/hashicorp/go-sockaddr" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/src/github.com/hashicorp/golang-lru" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/src/github.com/hashicorp/memberlist" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/src/github.com/sean-/seed" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/src/golang.org/x/crypto" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/src/golang.org/x/sys" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/src/golang.org/x/tools" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/src/stathat.com/c/consistent" vcs="Git" />
+  </component>
+</project>
