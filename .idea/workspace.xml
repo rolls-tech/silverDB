@@ -2,15 +2,27 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="9a6cd78f-107b-4f59-aacc-c8e638a4c852" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/github.com/armon/go-metrics" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/armon/go-metrics" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/github.com/armon/go-metrics/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/armon/go-metrics/go.mod" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/github.com/google/btree" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/google/btree" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/github.com/google/btree/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/google/btree/go.mod" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/github.com/hashicorp/errwrap" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/hashicorp/errwrap" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/github.com/hashicorp/errwrap/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/hashicorp/errwrap/go.mod" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/github.com/hashicorp/go-immutable-radix" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/hashicorp/go-immutable-radix" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/github.com/hashicorp/go-immutable-radix/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/hashicorp/go-immutable-radix/go.mod" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/github.com/hashicorp/go-msgpack" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/hashicorp/go-msgpack" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/github.com/hashicorp/go-msgpack/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/hashicorp/go-msgpack/go.mod" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/github.com/hashicorp/go-multierror" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/hashicorp/go-multierror" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/github.com/hashicorp/go-multierror/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/hashicorp/go-multierror/go.mod" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/github.com/hashicorp/go-sockaddr" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/hashicorp/go-sockaddr" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/github.com/hashicorp/go-sockaddr/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/hashicorp/go-sockaddr/go.mod" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/github.com/hashicorp/golang-lru" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/hashicorp/golang-lru" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/github.com/hashicorp/golang-lru/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/hashicorp/golang-lru/go.mod" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/github.com/hashicorp/memberlist" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/hashicorp/memberlist" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/github.com/hashicorp/memberlist/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/hashicorp/memberlist/go.mod" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/golang.org/x/tools" beforeDir="false" afterPath="$PROJECT_DIR$/src/golang.org/x/tools" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/golang.org/x/tools/go/ssa/interp/testdata/src/fmt/fmt.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/golang.org/x/tools/go/ssa/interp/testdata/src/fmt/fmt.go" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -43,7 +55,7 @@
   </component>
   <component name="GOROOT" path="D:\APP\go" />
   <component name="Git.Settings">
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/src/golang.org/x/tools" />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="GoLibraries">
     <option name="urls">
@@ -57,6 +69,7 @@
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="PropertiesComponent">
     <property name="DefaultGoTemplateProperty" value="Go File" />
+    <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="aspect.path.notification.shown" value="true" />
     <property name="configurable.Global.GOPATH.is.expanded" value="true" />
@@ -121,7 +134,7 @@
       <workItem from="1573284850659" duration="6003000" />
       <workItem from="1573348674668" duration="8698000" />
       <workItem from="1573437827759" duration="13221000" />
-      <workItem from="1573473945701" duration="9461000" />
+      <workItem from="1573473945701" duration="10549000" />
     </task>
     <servers />
   </component>
