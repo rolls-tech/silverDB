@@ -13,6 +13,8 @@ import (
 
 type Cmd struct {
 	Name string
+	DataBase string
+	Bucket string
 	Key string
 	Value string
 	Error error
@@ -24,9 +26,6 @@ type Client interface {
 }
 
 func New(typ,server string) Client{
-	if typ == "redis" {
-		return nil
-	}
 	if typ == "http" {
 		return nil
 	}
@@ -94,17 +93,17 @@ func (c *tcpClient) recvResponse() (string,error) {
 
 func (c *tcpClient) Run(cmd *Cmd) {
 	if cmd.Name =="get "{
-		c.sendGet(cmd.Key)
+		c.sendGet(cmd.DataBase+cmd.Bucket+cmd.Key)
 		cmd.Value,cmd.Error=c.recvResponse()
 		return
 	}
 	if cmd.Name == "set" {
-		c.sendSet(cmd.Key,cmd.Value)
+		c.sendSet(cmd.DataBase+cmd.Bucket+cmd.Key,cmd.Value)
 		_,cmd.Error=c.recvResponse()
 		return
 	}
 	if cmd.Name == "del" {
-		c.sendDel(cmd.Key)
+		c.sendDel(cmd.DataBase+cmd.Bucket+cmd.Key)
 		_,cmd.Error=c.recvResponse()
 		return
 	}
@@ -117,13 +116,13 @@ func (c *tcpClient) PipelineRun(cmds []*Cmd) {
 	}
 	for _,cmd:=range cmds {
 		if cmd.Name == "get" {
-			c.sendGet(cmd.Key)
+			c.sendGet(cmd.DataBase+cmd.Bucket+cmd.Key)
 		}
 		if cmd.Name == "set" {
-			c.sendSet(cmd.Key,cmd.Value)
+			c.sendSet(cmd.DataBase+cmd.Bucket+cmd.Key,cmd.Value)
 		}
 		if cmd.Name == "del" {
-			c.sendDel(cmd.Key)
+			c.sendDel(cmd.DataBase+cmd.Bucket+cmd.Key)
 		}
 	}
 	for _,cmd :=range cmds {

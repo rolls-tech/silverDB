@@ -2,8 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="9a6cd78f-107b-4f59-aacc-c8e638a4c852" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/src/silver/cluster/node.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/silver/http/clusterHandler.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/github.com/armon/go-metrics" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/armon/go-metrics" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/github.com/armon/go-metrics/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/armon/go-metrics/go.mod" afterDir="false" />
@@ -25,7 +24,6 @@
       <change beforePath="$PROJECT_DIR$/src/github.com/hashicorp/memberlist/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/hashicorp/memberlist/go.mod" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/golang.org/x/tools" beforeDir="false" afterPath="$PROJECT_DIR$/src/golang.org/x/tools" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/golang.org/x/tools/go/ssa/interp/testdata/src/fmt/fmt.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/golang.org/x/tools/go/ssa/interp/testdata/src/fmt/fmt.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/silver/client/client.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/client/client.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/silver/client/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/client/main.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/silver/client/result.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/client/result.go" afterDir="false" />
@@ -142,7 +140,7 @@
       <workItem from="1573348674668" duration="8698000" />
       <workItem from="1573437827759" duration="13221000" />
       <workItem from="1573473945701" duration="10549000" />
-      <workItem from="1573520506108" duration="10506000" />
+      <workItem from="1573520506108" duration="15997000" />
     </task>
     <servers />
   </component>

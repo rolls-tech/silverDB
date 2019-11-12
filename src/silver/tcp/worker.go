@@ -2,6 +2,7 @@ package tcp
 
 import (
 	"bufio"
+	"golang.org/x/tools/go/ssa/interp/testdata/src/errors"
 	"golang.org/x/tools/go/ssa/interp/testdata/src/fmt"
 	"io"
 	"log"
@@ -45,7 +46,12 @@ func (s *Server) readKey(r *bufio.Reader) (string,error) {
 	if e !=nil {
 		return "",e
 	}
-	return string(k),nil
+	key:=string(k)
+	addr,ok:=s.ShouldProcess(key)
+	if !ok {
+		return "",errors.New("redirect "+addr)
+	}
+	return key,nil
 }
 
 func (s *Server) readKeyAndValue(r *bufio.Reader) (string,[]byte,error){
@@ -62,12 +68,17 @@ func (s *Server) readKeyAndValue(r *bufio.Reader) (string,[]byte,error){
 	if e !=nil {
 		return "",nil,e
 	}
+	key:=string(k)
+	addr,ok:=s.ShouldProcess(key)
+	if !ok {
+		return "",nil,errors.New("redirect "+addr)
+	}
 	v:=make([]byte,vlen)
 	_,e=io.ReadFull(r,v)
 	if e !=nil {
 		return "",nil,e
 	}
-	return string(k),v,nil
+	return key,v,nil
 }
 
 func readLen(r *bufio.Reader) (int,error) {
@@ -130,7 +141,7 @@ func (s *Server) process(conn net.Conn) {
 			}
 			return
 		}
-		if op =='S' {
+		if op =='S'{
 			e=s.set(conn,r)
 		}else if op == 'G' {
 			e=s.get(conn,r)
@@ -140,7 +151,7 @@ func (s *Server) process(conn net.Conn) {
 			log.Println("close connection due to invalid operation:",op)
 			return
 		}
-        if e !=nil {
+        if e != nil {
         	log.Println("close connection due to error:",e)
 			return
 		}

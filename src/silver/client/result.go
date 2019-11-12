@@ -79,7 +79,7 @@ func operate(id,count int,ch chan * result) {
 				name ="get"
 			}
 		}
-		c:=&Cmd{name,key,value,nil}
+		c:=&Cmd{name,db,bucket,key,value,nil}
 		if pipelen >1 {
 			cmds=append(cmds,c)
 			if len(cmds)==pipelen {
