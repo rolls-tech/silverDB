@@ -17,7 +17,7 @@ func init() {
 	flag.IntVar(&total,"n",1000,"total number of requests")
 	flag.IntVar(&valueSize,"d",1000,"data size of SET/GET value in bytes")
 	flag.IntVar(&threads,"c",1,"number of parallel connections")
-	flag.StringVar(&operation,"t","set","Test set")
+	flag.StringVar(&operation,"t","set","Test set,support get/set/mixed")
 	flag.IntVar(&keyspacelen,"r",0,"keyspacelen,use random keys from 0 to keyspacelen-1")
     flag.IntVar(&pipelen,"P",1,"pipeline length")
 	flag.Parse()
@@ -28,10 +28,8 @@ func init() {
 	fmt.Println("we have",threads,"connections")
 	fmt.Println("operation is",operation)
 	fmt.Println("keyspacelen is",keyspacelen)
-	fmt.Println("pipeline length is",pipeline)
-
+	fmt.Println("pipeline length is",pipelen)
     rand.Seed(time.Now().UnixNano())
-
 }
 
 
@@ -66,17 +64,22 @@ func main() {
     fmt.Printf("throughput is f% MB/s\n",float64((res.getCount+res.setCount)*valueSize)/1e6/d.Seconds())
 
 
-	server:=flag.String("h","localhost","cache server address")
+  /*server:=flag.String("h","localhost","cache server address")
 	op:=flag.String("c","get","command,cound be get/set/del")
 	key:=flag.String("k","","key")
 	value:=flag.String("v","","value")
 	flag.Parse()
 	client:=New("tcp",*server)
-	cmd:=&Cmd(*op,*key,*value,nil)
+	cmd:=&Cmd{
+		Name:  *op,
+		Key:   *key,
+		Value: *value,
+		Error: nil,
+	}
 	client.Run(cmd)
 	if cmd.Error !=nil {
 		fmt.Println("error:",cmd.Error)
 	}else{
 		fmt.Println(cmd.Value)
-	}
+	} */
 }

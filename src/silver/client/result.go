@@ -32,7 +32,7 @@ func (r *result) addStatistic(bucket int,stat statistic){
 }
 
 func (r *result) addDuration(d time.Duration,typ string) {
-	bucket:=int(d / time.Millisecond)
+	bucket:=int(d/time.Millisecond)
 	r.addStatistic(bucket,statistic{1, d})
 	if typ == "get" {
 		r.getCount++
@@ -75,7 +75,7 @@ func operate(id,count int,ch chan * result) {
 		if operation =="mixed" {
 			if rand.Intn(2)==1 {
 				name ="set"
-			}else{
+			}else {
 				name ="get"
 			}
 		}
@@ -90,7 +90,7 @@ func operate(id,count int,ch chan * result) {
 			run(client,c,r)
 		}
 	}
-	if len(cmds) !=0 {
+	if len(cmds) != 0 {
 		pipeline(client,cmds,r)
 	}
 	ch <-r

@@ -131,7 +131,7 @@ func (c *tcpClient) PipelineRun(cmds []*Cmd) {
 	}
 }
 
-func newTcpClient(server string) * tcpClient {
+func newTcpClient(server string) *tcpClient {
 	c,e:=net.Dial("tcp",server+":12346")
 	if e !=nil {
 		panic(e)

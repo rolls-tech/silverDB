@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"silver/cache"
+	"silver/cluster"
 	"silver/http"
 	"silver/tcp"
 )
@@ -13,13 +14,21 @@ func main() {
 	dataPath:=flag.String("dataPath","","data path")
 	db:=flag.String("dbName","","dbName")
 	table:=flag.String("table","","tableName")
+	node:=flag.String("node","127.0.0.1","node address")
+	clus:=flag.String("cluster","","cluster address")
 	flag.Parse()
 	log.Println("type is",*typ)
 	log.Println("dataPath is",*dataPath)
 	log.Println("dbName is",*db)
 	log.Println("table is",*table)
+	log.Println("node is",*node)
+	log.Println("cluster is",*clus)
 	c:=cache.New(*typ,*dataPath,*db,*table)
-	go tcp.New(c).Listen()
-	http.New(c).Listen()
+	n,err:=cluster.New(*node,*clus)
+	if err!=nil {
+		panic(err)
+	}
+	go tcp.New(c,n).Listen()
+	http.New(c,n).Listen()
 }
 

@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="9a6cd78f-107b-4f59-aacc-c8e638a4c852" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/src/silver/cluster/node.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/github.com/armon/go-metrics" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/armon/go-metrics" afterDir="false" />
@@ -24,6 +25,12 @@
       <change beforePath="$PROJECT_DIR$/src/github.com/hashicorp/memberlist/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/hashicorp/memberlist/go.mod" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/golang.org/x/tools" beforeDir="false" afterPath="$PROJECT_DIR$/src/golang.org/x/tools" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/golang.org/x/tools/go/ssa/interp/testdata/src/fmt/fmt.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/golang.org/x/tools/go/ssa/interp/testdata/src/fmt/fmt.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/client/client.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/client/client.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/client/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/client/main.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/client/result.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/client/result.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/http/worker.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/http/worker.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/tcp/worker.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/tcp/worker.go" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -80,7 +87,7 @@
     <property name="go.tried.to.enable.integration.vgo.integrator" value="true" />
     <property name="go.vendoring.notification.had.been.shown" value="true" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$" />
-    <property name="settings.editor.selected.configurable" value="go.vgo" />
+    <property name="settings.editor.selected.configurable" value="project.propVCSSupport.Mappings" />
   </component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
@@ -135,6 +142,7 @@
       <workItem from="1573348674668" duration="8698000" />
       <workItem from="1573437827759" duration="13221000" />
       <workItem from="1573473945701" duration="10549000" />
+      <workItem from="1573520506108" duration="10506000" />
     </task>
     <servers />
   </component>
@@ -159,6 +167,7 @@
       <path value="$PROJECT_DIR$/src/github.com/miekg/dns" />
       <path value="$PROJECT_DIR$/src/meikg.dns" />
       <path value="$PROJECT_DIR$/src/golang.org/x/xerrors" />
+      <path value="$PROJECT_DIR$/src/github.com/go-redis/redis" />
     </ignored-roots>
   </component>
   <component name="VgoProject">
