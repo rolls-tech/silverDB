@@ -1,7 +1,7 @@
 package main
 
 import (
-	"golang.org/x/tools/go/ssa/interp/testdata/src/fmt"
+	"fmt"
 	"math/rand"
 	"strings"
 	"time"

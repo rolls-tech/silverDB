@@ -10,11 +10,11 @@ import (
 )
 
 func main() {
-	typ:=flag.String("type","inmemory","cache")
+	typ:=flag.String("type","boltdb","storage type")
 	dataPath:=flag.String("dataPath","","data path")
 	db:=flag.String("dbName","","dbName")
 	table:=flag.String("table","","tableName")
-	node:=flag.String("node","127.0.0.1","node address")
+	node:=flag.String("node","localhost","node address")
 	clus:=flag.String("cluster","","cluster address")
 	flag.Parse()
 	log.Println("type is",*typ)

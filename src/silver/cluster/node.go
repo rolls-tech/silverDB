@@ -36,8 +36,8 @@ func New(addr,cluster string) (Node,error){
 	if err !=nil {
 		return nil,err
 	}
-	if cluster==" " {
-		cluster =addr
+	if cluster=="" {
+		cluster=addr
 	}
 	clu:=[]string{cluster}
 	_,err=l.Join(clu)

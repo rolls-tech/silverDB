@@ -2,8 +2,8 @@ package main
 
 import (
 	"bufio"
-	"golang.org/x/tools/go/ssa/interp/testdata/src/errors"
-	"golang.org/x/tools/go/ssa/interp/testdata/src/fmt"
+	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
