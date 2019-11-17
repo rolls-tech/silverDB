@@ -1,4 +1,4 @@
-package cache
+package storage
 
 type Stat struct {
 	Count int64
@@ -6,13 +6,13 @@ type Stat struct {
 	ValueSize int64
 }
 
-func (s *Stat) add(k string,v []byte){
+func (s *Stat) Addstat(k string,v []byte){
      s.Count+=1
      s.KeySize+=int64(len(k))
      s.ValueSize+=int64(len(v))
 }
 
-func (s *Stat) del(k string,v []byte){
+func (s *Stat) Delstat(k string,v []byte){
 	s.Count-=1
 	s.KeySize-=int64(len(k))
 	s.ValueSize-=int64(len(v))

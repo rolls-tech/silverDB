@@ -3,12 +3,12 @@ package http
 import (
 	"log"
 	"net/http"
-	"silver/cache"
 	"silver/cluster"
+	"silver/storage"
 )
 
 type Server struct {
-	cache.Cache
+	storage.Storage
 	cluster.Node
 }
 
@@ -22,6 +22,6 @@ func (s *Server) Listen(){
 	}
 }
 
-func New(c cache.Cache,n cluster.Node) *Server{
+func New(c storage.Storage,n cluster.Node) *Server{
 	return &Server{c,n}
 }

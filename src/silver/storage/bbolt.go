@@ -1,4 +1,4 @@
-package cache
+package storage
 
 import (
 	"github.com/boltdb/bolt"
@@ -14,7 +14,7 @@ type bbolt struct {
 	 DbName string
 	 OpBucket string
      buckets map[string]*bucket
-	 Stat
+	Stat
 }
 
 type bucket struct {
@@ -37,7 +37,7 @@ func (b *bbolt) Set(k string, v []byte) error {
 		if err:=t.Put([]byte(k),v); err!=nil {
 			return err
 		}
-		b.add(k,v)
+		b.Addstat(k,v)
 		return nil
 	}); err !=nil {
 		return err
@@ -45,9 +45,8 @@ func (b *bbolt) Set(k string, v []byte) error {
 	return nil
 }
 
-func (b *bbolt) Get(k string) ([]byte, error) {
+func (b *bbolt) Get(k string) ([]byte,*bolt.DB,error) {
 	db:=b.openDB()
-	defer db.Close()
 	var v []byte
 	if err:=db.View(func(tx *bolt.Tx) error {
       v=tx.Bucket([]byte(b.OpBucket)).Get([]byte(k))
@@ -55,12 +54,11 @@ func (b *bbolt) Get(k string) ([]byte, error) {
 	});err!= nil {
 		log.Println(err)
 	}
-    return v,nil
+    return v,db,nil
 }
 
-func (b *bbolt) Del(k string) error {
+func (b *bbolt) Del(k string) (*bolt.DB,error) {
 	db:=b.openDB()
-	defer db.Close()
 	var v []byte
 	if err:=db.View(func(tx *bolt.Tx) error {
 		v=tx.Bucket([]byte(b.OpBucket)).Get([]byte(k))
@@ -68,12 +66,12 @@ func (b *bbolt) Del(k string) error {
 		if err !=nil {
 			log.Println(err)
 		}
-		b.del(k,v)
+		b.Delstat(k,v)
 		return nil
 	});err!= nil {
 		log.Println(err)
 	}
-	return nil
+	return db,nil
 }
 
 func (b *bbolt) GetStat() Stat {
@@ -81,7 +79,7 @@ func (b *bbolt) GetStat() Stat {
 }
 
 
-func newBoltdb(dataPath string,dataBase string,table string) *bbolt {
+func NewBoltdb(dataPath string,dataBase string,table string) *bbolt {
     return &bbolt{
 		c:        make(map[string][]byte),
 		mutex:    sync.RWMutex{},
@@ -95,7 +93,7 @@ func newBoltdb(dataPath string,dataBase string,table string) *bbolt {
 }
 
 func (b *bbolt) openDB() *bolt.DB {
-    db,err := bolt.Open(b.FilePath+b.DbName+".db",066,nil)
+    db,err := bolt.Open(b.FilePath+b.DbName+".db",777,nil)
     if err !=nil {
     	log.Println(err.Error())
 	}
@@ -108,8 +106,8 @@ func (b *bbolt) updateIndex(k string,v []byte){
 		b.buckets[b.OpBucket]= &bucket {
 			minKey:k,
 		}
-	}else {
-		t.add(k,v)
+	} else {
+		t.Addstat(k,v)
 		if t.minKey > k {
 			t.minKey=k
 		}

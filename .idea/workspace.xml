@@ -2,7 +2,9 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="9a6cd78f-107b-4f59-aacc-c8e638a4c852" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.db" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/silver/storage/storage.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/test.db" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.db" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/github.com/armon/go-metrics" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/armon/go-metrics" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/github.com/armon/go-metrics/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/src/github.com/armon/go-metrics/go.mod" afterDir="false" />
@@ -25,10 +27,14 @@
       <change beforePath="$PROJECT_DIR$/src/golang.org/x/tools" beforeDir="false" afterPath="$PROJECT_DIR$/src/golang.org/x/tools" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/golang.org/x/tools/go/ssa/interp/testdata/src/fmt/fmt.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/golang.org/x/tools/go/ssa/interp/testdata/src/fmt/fmt.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/cache/bbolt.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/storage/bbolt.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/cache/cache.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/cache/inmemory.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/storage/inmemory.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/cache/stat.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/storage/stat.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/silver/client/client.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/client/client.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/silver/client/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/client/main.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/silver/client/result.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/client/result.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/silver/cluster/node.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/cluster/node.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/http/cacheHandler.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/http/cacheHandler.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/http/worker.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/http/worker.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/silver/tcp/worker.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/tcp/worker.go" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -89,16 +95,19 @@
     <property name="go.tried.to.enable.integration.vgo.integrator" value="true" />
     <property name="go.vendoring.notification.had.been.shown" value="true" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="run.code.analysis.last.selected.profile" value="pProject Default" />
     <property name="settings.editor.selected.configurable" value="project.propVCSSupport.Mappings" />
   </component>
   <component name="RecentsManager">
-    <key name="MoveFile.RECENT_KEYS">
-      <recent name="D:\dev\silver\src\silver\cache" />
-      <recent name="D:\dev\silver\src\silver" />
-      <recent name="D:\dev\silver\src" />
-    </key>
     <key name="CopyFile.RECENT_KEYS">
       <recent name="D:\dev\silver\src\http" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="D:\dev\silver\src\silver\storage" />
+      <recent name="D:\dev\silver\src" />
+      <recent name="D:\dev\silver\src\silver" />
+      <recent name="D:\dev\silver\src\silver\storage\bbolt" />
+      <recent name="D:\dev\silver\src\silver\storage\inmemory" />
     </key>
   </component>
   <component name="RunDashboard">
@@ -155,7 +164,11 @@
       <workItem from="1573437827759" duration="13221000" />
       <workItem from="1573473945701" duration="10549000" />
       <workItem from="1573520506108" duration="17265000" />
-      <workItem from="1573621852459" duration="1161000" />
+      <workItem from="1573621852459" duration="1780000" />
+      <workItem from="1573805956562" duration="2149000" />
+      <workItem from="1573874730091" duration="598000" />
+      <workItem from="1573880363249" duration="24184000" />
+      <workItem from="1573955706503" duration="8664000" />
     </task>
     <servers />
   </component>

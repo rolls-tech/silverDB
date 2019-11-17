@@ -14,16 +14,16 @@ var total,valueSize,threads,keyspacelen,pipelen int
 func init() {
 	flag.StringVar(&typ,"t","tcp","connection protocol type")
 	flag.StringVar(&server,"h","localhost","storage server address")
-	flag.StringVar(&db,"db","","database")
-	flag.StringVar(&bucket,"b","","table")
+	flag.StringVar(&db,"db","test","database")
+	flag.StringVar(&bucket,"b","test-table","table")
     flag.StringVar(&key,"k","","key")
 	flag.StringVar(&value,"v","","value")
-	flag.IntVar(&total,"n",1000,"total number of requests")
-	flag.IntVar(&valueSize,"d",1000,"data size of SET/GET value in bytes")
-	flag.IntVar(&threads,"c",1,"number of parallel connections")
-	flag.StringVar(&operation,"op","set","Test set,support get/set/mixed")
+	flag.IntVar(&total,"n",100,"total number of requests")
+	flag.IntVar(&valueSize,"d",10,"data size of SET/GET value in bytes")
+	flag.IntVar(&threads,"c",10,"number of parallel connections")
+	flag.StringVar(&operation,"op","get","Test set,support get/set/mixed")
 	flag.IntVar(&keyspacelen,"r",0,"keyspacelen,use random keys from 0 to keyspacelen-1")
-    flag.IntVar(&pipelen,"P",1,"pipeline length")
+    flag.IntVar(&pipelen,"P",2,"pipeline length")
 	flag.Parse()
     fmt.Println("type is",typ)
 	fmt.Println("server is",server)
@@ -68,7 +68,7 @@ func main() {
     	statTimeSum += s.time
     	fmt.Printf("%d%% reqests < %d ms\n",statCountSum*100/totalCount,b+1)
 	}
-    fmt.Printf("d% usec average for each request\n",int64(statTimeSum/time.Microsecond)/int64(statCountSum))
-    fmt.Printf("throughput is f% MB/s\n",float64((res.getCount+res.setCount)*valueSize)/1e6/d.Seconds())
+    fmt.Printf("%d usec average for each request\n",int64(statTimeSum/time.Microsecond)/int64(statCountSum))
+    fmt.Printf("throughput is %f MB/s\n",float64((res.getCount+res.setCount)*valueSize)/1e6/d.Seconds())
 
 }

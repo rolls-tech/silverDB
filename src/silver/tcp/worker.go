@@ -7,14 +7,14 @@ import (
 	"io"
 	"log"
 	"net"
-	"silver/cache"
 	"silver/cluster"
+	"silver/storage"
 	"strconv"
 	"strings"
 )
 
 type Server struct {
-	cache.Cache
+	storage.Storage
 	cluster.Node
 }
 
@@ -32,22 +32,16 @@ func (s *Server) Listen() {
 	}
 }
 
-func New(c cache.Cache,n cluster.Node) *Server{
+func New(c storage.Storage,n cluster.Node) *Server{
 	return &Server{c,n}
 }
 
 func (s *Server) readKey(r *bufio.Reader) (string,error) {
-	klen,e:=readLen(r)
+	locatekey,key,e:=parseGetData(r)
 	if e !=nil {
 		return "",e
 	}
-	k:=make([]byte,klen)
-	_,e=io.ReadFull(r,k)
-	if e !=nil {
-		return "",e
-	}
-	key:=string(k)
-	addr,ok:=s.ShouldProcess(key)
+	addr,ok:=s.ShouldProcess(locatekey)
 	if !ok {
 		return "",errors.New("redirect "+addr)
 	}
@@ -55,42 +49,63 @@ func (s *Server) readKey(r *bufio.Reader) (string,error) {
 }
 
 func (s *Server) readKeyAndValue(r *bufio.Reader) (string,[]byte,error){
-	klen,e:=readLen(r)
+	locatekey,key,value,e:=parseSetData(r)
 	if e !=nil {
 		return "",nil,e
 	}
-	vlen,e:=readLen(r)
-	if e !=nil {
-		return "",nil,e
-	}
-	k:=make([]byte,klen)
-	_,e=io.ReadFull(r,k)
-	if e !=nil {
-		return "",nil,e
-	}
-	key:=string(k)
-	addr,ok:=s.ShouldProcess(key)
+	addr,ok:=s.ShouldProcess(locatekey)
 	if !ok {
 		return "",nil,errors.New("redirect "+addr)
 	}
-	v:=make([]byte,vlen)
-	_,e=io.ReadFull(r,v)
-	if e !=nil {
-		return "",nil,e
-	}
-	return key,v,nil
+	return key,value,nil
 }
 
-func readLen(r *bufio.Reader) (int,error) {
-	tmp,e:=r.ReadString(' ')
-	if e !=nil {
-		return 0,e
+func readLen(r *bufio.Reader) (string,error) {
+	tmp,e:=r.ReadString(',')
+	if tmp=="" {
+		return "",nil
 	}
-	l,e:=strconv.Atoi(strings.TrimSpace(tmp))
 	if e !=nil {
-		return 0,e
+		return "",e
 	}
-	return l,nil
+	return strings.ReplaceAll(tmp,",",""),nil
+}
+
+func parseSetData(r *bufio.Reader) (string,string,[]byte,error){
+	l1,e:=readLen(r)
+	l2,e:=readLen(r)
+	l3,e:=readLen(r)
+	l4,e:=readLen(r)
+	dblen,e:=strconv.Atoi(l1)
+	tblen,e:=strconv.Atoi(l2)
+	klen,e:=strconv.Atoi(l3)
+	vlen,e:=strconv.Atoi(l4)
+	buf:=make([]byte,dblen+tblen+klen+vlen)
+	_,e=io.ReadFull(r,buf)
+	if e !=nil {
+		return "","",nil,e
+	}
+	locatekey:=string(buf)[:dblen+tblen+klen]
+	key:=string(buf)[dblen+tblen:dblen+tblen+klen]
+	value:=buf[dblen+tblen+klen:]
+	return locatekey,key,value,nil
+}
+
+func parseGetData(r *bufio.Reader) (string,string,error){
+	l1,e:=readLen(r)
+	l2,e:=readLen(r)
+	l3,e:=readLen(r)
+	dblen,e:=strconv.Atoi(l1)
+	tblen,e:=strconv.Atoi(l2)
+	klen,e:=strconv.Atoi(l3)
+	buf:=make([]byte,dblen+tblen+klen)
+	_,e=io.ReadFull(r,buf)
+	if e !=nil {
+		return "","",e
+	}
+	locatekey:=string(buf)[:dblen+tblen+klen]
+	key:=string(buf)[dblen+tblen:dblen+tblen+klen]
+	return locatekey,key,nil
 }
 
 func sendResponse(value []byte,err error,conn net.Conn) error {
@@ -100,7 +115,7 @@ func sendResponse(value []byte,err error,conn net.Conn) error {
 		_,e:=conn.Write([]byte(tmp))
 		return e
 	}
-	vlen:=fmt.Sprintf("d%",len(value))
+	vlen:=fmt.Sprintf("%d,",len(value))
 	_,e:=conn.Write(append([]byte(vlen),value...))
 	return e
 }
@@ -110,7 +125,8 @@ func (s *Server) get(conn net.Conn,r *bufio.Reader) error {
 	if e !=nil {
 		return e
 	}
-	v,e:=s.Get(k)
+	v,db,e:=s.Get(k)
+	defer db.Close()
 	return sendResponse(v,e,conn)
 }
 
@@ -127,7 +143,9 @@ func (s *Server) del(conn net.Conn,r *bufio.Reader) error {
 	if e !=nil {
 		return e
 	}
-	return sendResponse(nil,s.Del(k),conn)
+	db,e:=s.Del(k)
+	defer db.Close()
+	return sendResponse(nil,e,conn)
 }
 
 func (s *Server) process(conn net.Conn) {
