@@ -13,6 +13,7 @@
     <mapping directory="$PROJECT_DIR$/src/github.com/hashicorp/golang-lru" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/src/github.com/hashicorp/memberlist" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/src/github.com/sean-/seed" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/src/github.com/toml" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/src/golang.org/x/crypto" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/src/golang.org/x/sys" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/src/golang.org/x/tools" vcs="Git" />

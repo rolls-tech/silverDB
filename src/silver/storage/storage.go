@@ -6,25 +6,24 @@ import (
 )
 
 type Storage interface {
-	Set(string,[]byte) error
-	Get(string) ([]byte,*bolt.DB,error)
-	Del(string) (*bolt.DB,error)
+	Set(string, string, string, []byte) error
+	Get(string, string, string) ([]byte, *bolt.DB, error)
+	Del(string, string, string) (*bolt.DB, error)
 	GetStat() Stat
 }
 
-func New(typ string,dataPath string,dataBase string,table string) Storage {
-
+func New(typ string, dataPath []string) Storage {
 	var s Storage
-	if typ == "inmemory" {
-		s= NewInMemory()
+	if typ == "memory" {
+		s = NewInMemory()
 	}
-	if typ == "boltdb" {
-		s= NewBoltdb(dataPath,dataBase,table)
+	if typ == "bolt" {
+		s = NewBolt(dataPath)
 	}
 	if s == nil {
-		panic("unknown storage type"+typ)
+		panic("unknown storage type" + typ)
 	}
-	log.Println(typ,"ready to serve")
-	return  s
+	log.Println(typ, "ready to serve")
+	return s
 
 }

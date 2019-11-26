@@ -1,17 +1,30 @@
-package conf
+package config
+
+import (
+	"github.com/toml"
+	"log"
+)
 
 type Cache struct {
-	Enable bool `yaml:"enable"`
-	List []string `yaml:"list,flow"`
+	Enable bool
+	List   []string
 }
 
 type Storage struct {
-	Type string `yaml:"type"`
-	Node string `yaml:"node"`
-	HostName string `yaml:"hostName"`
-	HttpPort int `yaml:"httpPort"`
-	TcpPort int `yaml:"tcpPort"`
-	Cluster []string `yaml:"cluster,flow"`
-	DataPath []string `yaml:"dataPath,flow"`
+	Type     string
+	Node     string
+	HostName string
+	HttpPort int
+	TcpPort  int
+	Cluster  []string
+	DataPath []string
 }
 
+func GetStorageConf(path string) *Storage {
+	var c Storage
+	if _, err := toml.DecodeFile(path, &c); err != nil {
+		panic(err)
+	}
+	log.Println(c)
+	return &c
+}
