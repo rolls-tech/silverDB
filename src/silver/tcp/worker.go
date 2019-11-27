@@ -18,8 +18,8 @@ type Server struct {
 	cluster.Node
 }
 
-func (s *Server) Listen() {
-	l, e := net.Listen("tcp", ":12346")
+func (s *Server) Listen(addr string) {
+	l, e := net.Listen("tcp", addr)
 	if e != nil {
 		panic(e)
 	}
@@ -43,7 +43,8 @@ func (s *Server) readKey(r *bufio.Reader) (string, error) {
 	}
 	addr, ok := s.ShouldProcess(db + table + key)
 	if !ok {
-		return "", errors.New("redirect " + addr)
+		//此处应该返回客户端，告知客户端处理的地址，客户端重新发送请求
+		return "", errors.New("redirect" + addr)
 	}
 	return key, nil
 }

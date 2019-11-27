@@ -1,8 +1,11 @@
 package cluster
 
 import (
+	"flag"
 	"github.com/hashicorp/memberlist"
 	"io/ioutil"
+	"log"
+	"os"
 	"stathat.com/c/consistent"
 	"time"
 )
@@ -27,10 +30,14 @@ func (n *node) ShouldProcess(key string) (string,bool) {
     return addr,addr==n.addr
 }
 
-func New(addr,cluster string) (Node,error){
+var bindPort = flag.Int("port", 8001, "gossip port")
+
+func New(addr string,cluster string) (Node,error) {
 	conf:=memberlist.DefaultLANConfig()
-	conf.Name=addr
-	conf.BindAddr=addr
+	hostName,_:=os.Hostname()
+	conf.Name=hostName+"-"+addr
+	conf.BindAddr = addr
+	//conf.BindPort=*bindPort
 	conf.LogOutput=ioutil.Discard
 	l,err:=memberlist.Create(conf)
 	if err !=nil {
@@ -40,18 +47,21 @@ func New(addr,cluster string) (Node,error){
 		cluster=addr
 	}
 	clu:=[]string{cluster}
+	log.Println(clu)
 	_,err=l.Join(clu)
 	if err !=nil {
 		return nil,err
 	}
+	log.Println(l.Members())
 	circle:=consistent.New()
 	circle.NumberOfReplicas=256
 	go func(){
        for {
        	m:=l.Members()
        	nodes:=make([]string,len(m))
-       	for i,node:=range m{
+       	for i,node:=range m {
        		nodes[i]=node.Name
+       		log.Println(node.Port,node.Name,node.Addr)
 		}
        	circle.Set(nodes)
        	time.Sleep(time.Second)

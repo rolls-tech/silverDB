@@ -1,18 +1,17 @@
 package client
 
 import (
-	"silver/benchmark"
 	"testing"
 )
 
 func TestClient_Operate(t *testing.T) {
-	var cmds []*benchmark.Cmd
-	cmd := benchmark.Cmd{
-		Name:     "get",
-		DataBase: "testdb4",
-		Bucket:   "test3",
-		Key:      "bbbba32",
-		Value:    "",
+	var cmds []*Cmd
+	cmd := Cmd{
+		Name:     "",
+		DataBase: "testdb1",
+		Bucket:   "test",
+		Key:      "bbb",
+		Value:    "123",
 		Error:    nil,
 	}
 	cmds = append(cmds, &cmd)

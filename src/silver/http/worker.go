@@ -12,11 +12,11 @@ type Server struct {
 	cluster.Node
 }
 
-func (s *Server) Listen(){
+func (s *Server) Listen(addr string){
 	http.Handle("/cache",s.cacheHandler())
 	http.Handle("/status",s.statusHandler())
 	http.Handle("/cluster",s.clusterHandler())
-	err:=http.ListenAndServe(":12345",nil)
+	err:=http.ListenAndServe(addr,nil)
 	if err!=nil{
 	  log.Println(err.Error())
 	}

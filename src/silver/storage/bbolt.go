@@ -29,7 +29,7 @@ type bucket struct {
 }
 
 func (b *bbolt) Set(dataBase, table, k string, v []byte) error {
-	dataFile, _ := b.getDataFile(dataBase, table, k)
+	dataFile, _ := b.setDataFile(dataBase, table, k)
 	db := b.openDB(dataFile)
 	defer db.Close()
 	if err := db.Update(func(tx *bolt.Tx) error {
@@ -51,38 +51,43 @@ func (b *bbolt) Set(dataBase, table, k string, v []byte) error {
 
 func (b *bbolt) Get(dataBase, table, k string) ([]byte, *bolt.DB, error) {
 	dataFile, _ := b.getDataFile(dataBase, table, k)
-	db := b.openDB(dataFile)
-	var v []byte
-	if err := db.View(func(tx *bolt.Tx) error {
-		v = tx.Bucket([]byte(table)).Get([]byte(k))
-		return nil
-	}); err != nil {
-		log.Println(err)
+	if dataFile != "" {
+		db := b.openDB(dataFile)
+		var v []byte
+		if err := db.View(func(tx *bolt.Tx) error {
+			v = tx.Bucket([]byte(table)).Get([]byte(k))
+			return nil
+		}); err != nil {
+			log.Println(err)
+		}
+		return v, db, nil
 	}
-
-	return v, db, nil
+	return nil,nil,nil
 }
 
 func (b *bbolt) Del(dataBase, table, k string) (*bolt.DB, error) {
 	dataFile, _ := b.getDataFile(dataBase, table, k)
-	db := b.openDB(dataFile)
-	var v []byte
-	var c *bolt.Cursor
-	if err := db.View(func(tx *bolt.Tx) error {
-		v = tx.Bucket([]byte(table)).Get([]byte(k))
-		err := tx.Bucket([]byte(table)).Delete([]byte(k))
-		t := tx.Bucket([]byte(table))
-		c = t.Cursor()
-		if err != nil {
+	if dataFile !="" {
+		db := b.openDB(dataFile)
+		var v []byte
+		var c *bolt.Cursor
+		if err := db.View(func(tx *bolt.Tx) error {
+			v = tx.Bucket([]byte(table)).Get([]byte(k))
+			err := tx.Bucket([]byte(table)).Delete([]byte(k))
+			t := tx.Bucket([]byte(table))
+			c = t.Cursor()
+			if err != nil {
+				log.Println(err)
+			}
+			b.Delstat(k, v)
+			return nil
+		}); err != nil {
 			log.Println(err)
 		}
-		b.Delstat(k, v)
-		return nil
-	}); err != nil {
-		log.Println(err)
+		b.deleteBucketIndex(dataBase, table, k, c)
+		return db, nil
 	}
-	b.deleteBucketIndex(dataBase, table, k, c)
-	return db, nil
+	return nil,nil
 }
 
 func (b *bbolt) GetStat() Stat {
@@ -165,7 +170,7 @@ func (b *bbolt) deleteBucketIndex(dbName, bucketName string, key string, c *bolt
 	}
 }
 
-func (b *bbolt) getDataFile(dbName, bucketName string, key string) (string, error) {
+func (b *bbolt) setDataFile(dbName, bucketName string, key string) (string, error) {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
 	var dataFile string
@@ -174,6 +179,7 @@ func (b *bbolt) getDataFile(dbName, bucketName string, key string) (string, erro
 		rand.Seed(time.Now().Unix())
 		n = rand.Intn(len(b.DataDir))
 		dataFile = b.DataDir[n] + dbName + ".db"
+		return dataFile,nil
 	} else {
 		for buc, _ := range b.DataFileIndex {
 			if buc.DdName == dbName {
@@ -184,6 +190,24 @@ func (b *bbolt) getDataFile(dbName, bucketName string, key string) (string, erro
 		rand.Seed(time.Now().Unix())
 		n = rand.Intn(len(b.DataDir))
 		dataFile = b.DataDir[n] + dbName + ".db"
+	}
+	return dataFile, nil
+}
+
+
+func (b *bbolt) getDataFile(dbName, bucketName string, key string) (string, error) {
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
+	var dataFile string
+	if len(b.DataFileIndex) == 0 {
+		return "",nil
+	} else {
+		for buc, _ := range b.DataFileIndex {
+			if buc.DdName == dbName {
+				dataFile = buc.DataFile
+				return dataFile, nil
+			}
+		}
 	}
 	return dataFile, nil
 }

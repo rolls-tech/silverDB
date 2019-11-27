@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"silver/benchmark"
 	"strconv"
 	"strings"
 )
@@ -14,9 +13,19 @@ import (
 type ConfigClient struct {
 	Server      string
 	StorageType string
-	Cmds        []*benchmark.Cmd
+	Cmds        []*Cmd
 	OperateType string
 }
+
+type Cmd struct {
+	Name     string
+	DataBase string
+	Bucket   string
+	Key      string
+	Value    string
+	Error    error
+}
+
 
 type Client struct {
 	net.Conn
@@ -32,7 +41,7 @@ func (conf *ConfigClient) newClient() *Client {
 	return &Client{c, r}
 }
 
-func NewClient(server string, storageType string, cmds []*benchmark.Cmd, operateType string) *ConfigClient {
+func NewClient(server string, storageType string, cmds []*Cmd, operateType string) *ConfigClient {
 	c := ConfigClient{
 		Server:      server,
 		StorageType: storageType,
@@ -53,7 +62,6 @@ func (conf *ConfigClient) PipelineRun(c *Client) {
 	}
 	for _, cmd := range conf.Cmds {
 		if conf.OperateType == "get" {
-			log.Println(cmd)
 			c.sendGet(cmd.DataBase, cmd.Bucket, cmd.Key, conf.StorageType)
 		}
 		if conf.OperateType == "set" {

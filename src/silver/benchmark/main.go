@@ -1,4 +1,4 @@
-package benchmark
+package main
 
 import (
 	"flag"
@@ -13,16 +13,16 @@ var total, valueSize, threads, keyspacelen, pipelen int
 func init() {
 	flag.StringVar(&typ, "t", "bolt", "storage type")
 	flag.StringVar(&server, "h", "127.0.0.1:12346", "storage server address")
-	flag.StringVar(&db, "db", "test", "database")
+	flag.StringVar(&db, "db", "test223", "database")
 	flag.StringVar(&bucket, "b", "test-table", "table")
 	flag.StringVar(&key, "k", "", "key")
 	flag.StringVar(&value, "v", "", "value")
-	flag.IntVar(&total, "n", 100, "total number of requests")
+	flag.IntVar(&total, "n", 10000, "total number of requests")
 	flag.IntVar(&valueSize, "d", 10, "data size of SET/GET value in bytes")
-	flag.IntVar(&threads, "c", 10, "number of parallel connections")
-	flag.StringVar(&operation, "op", "get", "Test set,support get/set/mixed")
-	flag.IntVar(&keyspacelen, "r", 0, "keyspacelen,use random keys from 0 to keyspacelen-1")
-	flag.IntVar(&pipelen, "P", 2, "pipeline length")
+	flag.IntVar(&threads, "c", 5, "number of parallel connections")
+	flag.StringVar(&operation, "op", "set", "Test set,support get/set/mixed")
+	flag.IntVar(&keyspacelen, "r", 10, "keyspacelen,use random keys from 0 to keyspacelen-1")
+	flag.IntVar(&pipelen, "P", 10, "pipeline length")
 	flag.Parse()
 	fmt.Println("type is", typ)
 	fmt.Println("server is", server)
