@@ -62,19 +62,19 @@ func initNodes() (nodeList,[]string){
 		dataDir:  dataDir1,
 		httpAddr: "127.0.0.1:12345",
 		tcpAddr:  "127.0.0.1:12346",
-		cluAddr:  "127.0.0.1:7946",
+		cluAddr:  "127.0.0.1",
 	}
 	node2:=nodeConfig{
 		dataDir:  dataDir2,
 		httpAddr: "127.0.0.1:12347",
 		tcpAddr:  "127.0.0.1:12348",
-		cluAddr:  "127.0.0.1:7947",
+		cluAddr:  "127.0.0.1",
 	}
 	node3:=nodeConfig{
 		dataDir:  dataDir3,
 		httpAddr: "127.0.0.1:12349",
 		tcpAddr:  "127.0.0.1:12340",
-		cluAddr:  "127.0.0.1:7948",
+		cluAddr:  "127.0.0.1",
 	}
 	nodes:=make([]nodeConfig,0)
 	cluster:=make([]string,0)
@@ -93,7 +93,6 @@ func initNodes() (nodeList,[]string){
 func main() {
 	allNodes,_:=initNodes()
 	node1:=allNodes.nodes[0]
-
 	//node1
 	c1 := storage.New(typ,node1.dataDir)
 	n1, err := cluster.New(node1.cluAddr,node1.cluAddr)

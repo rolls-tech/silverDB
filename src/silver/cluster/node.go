@@ -1,11 +1,10 @@
 package cluster
 
 import (
-	"flag"
 	"github.com/hashicorp/memberlist"
 	"io/ioutil"
 	"log"
-	"os"
+	"math/rand"
 	"stathat.com/c/consistent"
 	"time"
 )
@@ -30,16 +29,23 @@ func (n *node) ShouldProcess(key string) (string,bool) {
     return addr,addr==n.addr
 }
 
-var bindPort = flag.Int("port", 8001, "gossip port")
+//var bindPort = flag.Int("port", 8001, "gossip port")
+
 
 func New(addr string,cluster string) (Node,error) {
-	conf:=memberlist.DefaultLANConfig()
-	hostName,_:=os.Hostname()
-	conf.Name=hostName+"-"+addr
-	conf.BindAddr = addr
-	//conf.BindPort=*bindPort
-	conf.LogOutput=ioutil.Discard
-	l,err:=memberlist.Create(conf)
+	rand.Seed(time.Now().Unix())
+	n := rand.Intn(2)
+	//conf:=memberlist.DefaultLANConfig()
+    bindPorts:=[]int{7946,7947}
+	//bindPort, err := strconv.Atoi(strings.Split(addr,":")[1])
+	Localconf:=memberlist.DefaultLocalConfig()
+	//hostName,_:=os.Hostname()
+	Localconf.Name=addr
+	Localconf.BindAddr = addr
+	Localconf.BindPort=bindPorts[n]
+	log.Println(n)
+	Localconf.LogOutput=ioutil.Discard
+	l,err:=memberlist.Create(Localconf)
 	if err !=nil {
 		return nil,err
 	}
@@ -47,7 +53,6 @@ func New(addr string,cluster string) (Node,error) {
 		cluster=addr
 	}
 	clu:=[]string{cluster}
-	log.Println(clu)
 	_,err=l.Join(clu)
 	if err !=nil {
 		return nil,err
@@ -61,7 +66,6 @@ func New(addr string,cluster string) (Node,error) {
        	nodes:=make([]string,len(m))
        	for i,node:=range m {
        		nodes[i]=node.Name
-       		log.Println(node.Port,node.Name,node.Addr)
 		}
        	circle.Set(nodes)
        	time.Sleep(time.Second)

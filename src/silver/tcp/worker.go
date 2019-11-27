@@ -49,27 +49,36 @@ func (s *Server) readKey(r *bufio.Reader) (string, error) {
 	return key, nil
 }
 
-func (s *Server) readSetDataInfo(r *bufio.Reader) (string, string, string, []byte, error) {
+func (s *Server) readSetDataInfo(r *bufio.Reader,conn net.Conn) (string, string, string, []byte, error) {
 	db, table, key, value, e := parseSetData(r)
 	if e != nil {
 		return "", "", "", nil, e
 	}
 	addr, ok := s.ShouldProcess(db + table + key)
+	log.Println(addr,ok)
 	if !ok {
-		//此处应该返回客户端，告知客户端处理的地址，客户端重新发送请求
+		alen:= len(addr)
+		_, e := conn.Write([]byte(fmt.Sprintf("R%d,%s",alen,addr)))
+		if e != nil {
+			log.Println(e.Error())
+		}
 		return "", "", "", nil, errors.New("redirect " + addr)
 	}
 	return db, table, key, value, nil
 }
 
-func (s *Server) readGetDataInfo(r *bufio.Reader) (string, string, string, error) {
+func (s *Server) readGetDataInfo(r *bufio.Reader,conn net.Conn) (string, string, string, error) {
 	db, table, key, e := parseGetData(r)
 	if e != nil {
 		return "", "", "", e
 	}
 	addr, ok := s.ShouldProcess(db + table + key)
 	if !ok {
-		//此处应该返回客户端，告知客户端处理的地址，客户端重新发送请求
+		alen:= len(addr)
+		_, e := conn.Write([]byte(fmt.Sprintf("R%d,%s",alen,addr)))
+		if e != nil {
+			log.Println(e.Error())
+		}
 		return "", "", "", errors.New("redirect " + addr)
 	}
 	return db, table, key, nil
@@ -129,6 +138,7 @@ func sendResponse(value []byte, err error, conn net.Conn) error {
 	if err != nil {
 		errString := err.Error()
 		tmp := fmt.Sprintf("-%d", len((errString)+errString))
+		log.Println(tmp)
 		_, e := conn.Write([]byte(tmp))
 		return e
 	}
@@ -138,7 +148,7 @@ func sendResponse(value []byte, err error, conn net.Conn) error {
 }
 
 func (s *Server) get(conn net.Conn, r *bufio.Reader) error {
-	database, table, k, e := s.readGetDataInfo(r)
+	database, table, k, e := s.readGetDataInfo(r,conn)
 	log.Println(database, table, k)
 	if e != nil {
 		return e
@@ -149,7 +159,7 @@ func (s *Server) get(conn net.Conn, r *bufio.Reader) error {
 }
 
 func (s *Server) set(conn net.Conn, r *bufio.Reader) error {
-	database, table, k, v, e := s.readSetDataInfo(r)
+	database, table, k, v, e := s.readSetDataInfo(r,conn)
 	if e != nil {
 		return e
 	}
@@ -157,7 +167,7 @@ func (s *Server) set(conn net.Conn, r *bufio.Reader) error {
 }
 
 func (s *Server) del(conn net.Conn, r *bufio.Reader) error {
-	database, table, k, e := s.readGetDataInfo(r)
+	database, table, k, e := s.readGetDataInfo(r,conn)
 	if e != nil {
 		return e
 	}

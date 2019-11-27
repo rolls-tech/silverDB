@@ -72,9 +72,31 @@ func (conf *ConfigClient) PipelineRun(c *Client) {
 		}
 	}
 	for _, cmd := range conf.Cmds {
-		cmd.Value, cmd.Error = c.recvResponse()
+		cmd.Value, cmd.Error = c.processResponse(cmd)
 		fmt.Println(cmd.Value)
 	}
+}
+
+func (conf *ConfigClient) Run(c *Client,cmd Cmd) {
+	if conf.OperateType == "get" {
+		c.sendGet(cmd.DataBase, cmd.Bucket, cmd.Key, conf.StorageType)
+		cmd.Value, cmd.Error = c.processResponse(&cmd)
+		fmt.Println(cmd.Value)
+		return
+	}
+	if conf.OperateType == "set" {
+		c.sendSet(cmd.DataBase, cmd.Bucket, cmd.Key, cmd.Value, conf.StorageType)
+		cmd.Value, cmd.Error = c.processResponse(&cmd)
+		fmt.Println(cmd.Value)
+		return
+	}
+	if conf.OperateType == "del" {
+		c.sendDel(cmd.DataBase, cmd.Bucket, cmd.Key, conf.StorageType)
+		cmd.Value, cmd.Error = c.processResponse(&cmd)
+		fmt.Println(cmd.Value)
+		return
+	}
+	panic("unknown cmd name " + cmd.Name)
 }
 
 func (c *Client) sendGet(dataBase, bucket, key, storageType string) {
@@ -151,6 +173,29 @@ func readLen(r *bufio.Reader) string {
 		return ""
 	}
 	return strings.ReplaceAll(tmp, ",", "")
+}
+
+func (c *Client) processResponse(cmd *Cmd) (string,error) {
+	op, e := c.r.ReadByte()
+	if e != nil {
+		if e != io.EOF {
+			log.Println("close connection due to error:", e)
+		}
+		return "",nil
+	}
+	if op == 'R' {
+		value,_:=c.recvResponse()
+		log.Println(value)
+        redirect:=strings.Split(value,":")
+        addr:=redirect[1]
+		var cmds []*Cmd
+		cmds = append(cmds, cmd)
+		c := NewClient(addr+":12348", "bolt", cmds, "set")
+		client:=c.newClient()
+		c.Run(client,*cmds[0])
+	}
+	value,error := c.recvResponse()
+	return value,error
 }
 
 func (c *Client) recvResponse() (string, error) {
