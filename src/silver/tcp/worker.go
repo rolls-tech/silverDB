@@ -36,52 +36,40 @@ func New(c storage.Storage, n cluster.Node) *Server {
 	return &Server{c, n}
 }
 
-func (s *Server) readKey(r *bufio.Reader) (string, error) {
-	db, table, key, e := parseGetData(r)
-	if e != nil {
-		return "", e
-	}
-	addr, ok := s.ShouldProcess(db + table + key)
-	if !ok {
-		//此处应该返回客户端，告知客户端处理的地址，客户端重新发送请求
-		return "", errors.New("redirect" + addr)
-	}
-	return key, nil
-}
 
-func (s *Server) readSetDataInfo(r *bufio.Reader,conn net.Conn) (string, string, string, []byte, error) {
-	db, table, key, value, e := parseSetData(r)
+func (s *Server) readSetDataInfo(r *bufio.Reader,conn net.Conn) (string, string, string,string, []byte,string,string,error) {
+	database,table,rowKey,key,value,dataTime,st,e := parseSetData(r)
 	if e != nil {
-		return "", "", "", nil, e
+		return "", "", "", "",nil,"",st,e
 	}
-	addr, ok := s.ShouldProcess(db + table + key)
-	log.Println(addr,ok)
+	addr, ok := s.ShouldProcess(database+table+rowKey+key)
+	log.Println(addr)
 	if !ok {
 		alen:= len(addr)
 		_, e := conn.Write([]byte(fmt.Sprintf("R%d,%s",alen,addr)))
 		if e != nil {
 			log.Println(e.Error())
 		}
-		return "", "", "", nil, errors.New("redirect " + addr)
+		return "", "", "", "",nil,"",st,errors.New("redirect " + addr)
 	}
-	return db, table, key, value, nil
+	return database,table,rowKey,key,value,dataTime,st,nil
 }
 
-func (s *Server) readGetDataInfo(r *bufio.Reader,conn net.Conn) (string, string, string, error) {
-	db, table, key, e := parseGetData(r)
+func (s *Server) readGetDataInfo(r *bufio.Reader,conn net.Conn) (string, string, string,string,string,string,string,error) {
+	database,table,rowKey,key,startTime,endTime,st,e := parseGetData(r)
 	if e != nil {
-		return "", "", "", e
+		return "", "", "","","","",st,e
 	}
-	addr, ok := s.ShouldProcess(db + table + key)
+	addr, ok := s.ShouldProcess(database+table+rowKey+key)
 	if !ok {
 		alen:= len(addr)
 		_, e := conn.Write([]byte(fmt.Sprintf("R%d,%s",alen,addr)))
 		if e != nil {
 			log.Println(e.Error())
 		}
-		return "", "", "", errors.New("redirect " + addr)
+		return "", "", "","","","",st,errors.New("redirect " + addr)
 	}
-	return db, table, key, nil
+	return database,table,rowKey,key,startTime,endTime,st,nil
 }
 
 func readLen(r *bufio.Reader) (string, error) {
@@ -95,43 +83,130 @@ func readLen(r *bufio.Reader) (string, error) {
 	return strings.ReplaceAll(tmp, ",", ""), nil
 }
 
-func parseSetData(r *bufio.Reader) (string, string, string, []byte, error) {
-	l1, e := readLen(r)
-	l2, e := readLen(r)
-	l3, e := readLen(r)
-	l4, e := readLen(r)
-	dblen, e := strconv.Atoi(l1)
-	tblen, e := strconv.Atoi(l2)
-	klen, e := strconv.Atoi(l3)
-	vlen, e := strconv.Atoi(l4)
-	buf := make([]byte, dblen+tblen+klen+vlen)
-	_, e = io.ReadFull(r, buf)
-	if e != nil {
-		return "", "", "", nil, e
+func parseSetData(r *bufio.Reader) (string,string,string,string,[]byte,string,string,error) {
+	t, e := r.ReadByte()
+	switch t {
+	case 'c':
+		l1, e := readLen(r)
+		l2, e := readLen(r)
+		klen, e := strconv.Atoi(l1)
+		vlen, e := strconv.Atoi(l2)
+		buf := make([]byte, klen+vlen)
+		_, e = io.ReadFull(r, buf)
+		if e != nil {
+			return "", "", "","", nil,"","c",e
+		}
+		key := string(buf)[:klen]
+		value := buf[klen:klen+vlen]
+		return "","","",key,value,"","c",nil
+	case 'b':
+		l1, e := readLen(r)
+		l2, e := readLen(r)
+		l3, e := readLen(r)
+		l4, e := readLen(r)
+		dblen, e := strconv.Atoi(l1)
+		tblen, e := strconv.Atoi(l2)
+		klen, e := strconv.Atoi(l3)
+		vlen, e := strconv.Atoi(l4)
+		buf := make([]byte, dblen+tblen+klen+vlen)
+		_, e = io.ReadFull(r, buf)
+		if e != nil {
+			return "", "", "","", nil,"","b",e
+		}
+		database := string(buf)[:dblen]
+		table := string(buf)[dblen : dblen+tblen]
+		key := string(buf)[dblen+tblen : dblen+tblen+klen]
+		value := buf[dblen+tblen+klen:]
+		return database, table,"",key,value,"","b",nil
+	case 't':
+		l1, e := readLen(r)
+		l2, e := readLen(r)
+		l3, e := readLen(r)
+		l4, e := readLen(r)
+		l5, e := readLen(r)
+		l6, e := readLen(r)
+		dblen, e := strconv.Atoi(l1)
+		tblen, e := strconv.Atoi(l2)
+		rklen, e := strconv.Atoi(l3)
+		klen, e := strconv.Atoi(l4)
+		vlen,e:=strconv.Atoi(l5)
+		dtlen,e:=strconv.Atoi(l6)
+		buf := make([]byte, dblen+tblen+rklen+klen+vlen+dtlen)
+		_, e = io.ReadFull(r, buf)
+		if e != nil {
+			return "", "", "","", nil,"","t",e
+		}
+		database := string(buf)[:dblen]
+		table := string(buf)[dblen : dblen+tblen]
+		rowKey := string(buf)[dblen+tblen : dblen+tblen+rklen]
+		key:=string(buf)[dblen+tblen+rklen:dblen+tblen+rklen+klen]
+		value := buf[dblen+tblen+rklen+klen:dblen+tblen+rklen+klen+vlen]
+		dataTime:=string(buf)[dblen+tblen+rklen+klen+vlen:]
+		return database,table,rowKey,key,value,dataTime,"t",nil
+	default:
+		log.Println("Unknown Storage Type")
+		return "", "", "","", nil,"","",e
 	}
-	db := string(buf)[:dblen]
-	table := string(buf)[dblen : dblen+tblen]
-	key := string(buf)[dblen+tblen : dblen+tblen+klen]
-	value := buf[dblen+tblen+klen:]
-	return db, table, key, value, nil
 }
 
-func parseGetData(r *bufio.Reader) (string, string, string, error) {
-	l1, e := readLen(r)
-	l2, e := readLen(r)
-	l3, e := readLen(r)
-	dblen, e := strconv.Atoi(l1)
-	tblen, e := strconv.Atoi(l2)
-	klen, e := strconv.Atoi(l3)
-	buf := make([]byte, dblen+tblen+klen)
-	_, e = io.ReadFull(r, buf)
-	if e != nil {
-		return "", "", "", e
+func parseGetData(r *bufio.Reader) (string,string,string,string,string,string,string,error) {
+	t, e := r.ReadByte()
+	switch t {
+	case 'c':
+		l1, e := readLen(r)
+		klen, e := strconv.Atoi(l1)
+		buf := make([]byte, klen)
+		_, e = io.ReadFull(r, buf)
+		if e != nil {
+			return "", "", "","","","","c",e
+		}
+		key := string(buf)[:klen]
+		return "","","",key,"","","c",nil
+	case 'b':
+		l1, e := readLen(r)
+		l2, e := readLen(r)
+		l3, e := readLen(r)
+		dblen, e := strconv.Atoi(l1)
+		tblen, e := strconv.Atoi(l2)
+		klen, e := strconv.Atoi(l3)
+		buf := make([]byte, dblen+tblen+klen)
+		_, e = io.ReadFull(r, buf)
+		if e != nil {
+			return "", "", "","","","","b",e
+		}
+		database := string(buf)[:dblen]
+		table := string(buf)[dblen : dblen+tblen]
+		key := string(buf)[dblen+tblen : dblen+tblen+klen]
+		return database, table,"",key,"","","b",nil
+	case 't':
+		l1, e := readLen(r)
+		l2, e := readLen(r)
+		l3, e := readLen(r)
+		l4, e := readLen(r)
+		l6, e := readLen(r)
+		l7, e := readLen(r)
+		dblen, e := strconv.Atoi(l1)
+		tblen, e := strconv.Atoi(l2)
+		rklen, e := strconv.Atoi(l3)
+		klen, e := strconv.Atoi(l4)
+		stlen,e:=strconv.Atoi(l6)
+		etlen,e:=strconv.Atoi(l7)
+		buf := make([]byte, dblen+tblen+rklen+klen+stlen+etlen)
+		_, e = io.ReadFull(r, buf)
+		if e != nil {
+			return "", "", "","","","","t",e
+		}
+		database := string(buf)[:dblen]
+		table := string(buf)[dblen : dblen+tblen]
+		rowKey := string(buf)[dblen+tblen : dblen+tblen+rklen]
+		key:=string(buf)[dblen+tblen+rklen:dblen+tblen+rklen+klen]
+		startTime:=string(buf)[dblen+tblen+rklen+klen:dblen+tblen+rklen+klen+stlen]
+		endTime:=string(buf)[dblen+tblen+rklen+klen+stlen:]
+		return database,table,rowKey,key,startTime,endTime,"t",nil
+	default:
+		log.Println("Unknown Storage Type")
+		return "", "", "","","","","",e
 	}
-	db := string(buf)[:dblen]
-	table := string(buf)[dblen : dblen+tblen]
-	key := string(buf)[dblen+tblen : dblen+tblen+klen]
-	return db, table, key, nil
 }
 
 func sendResponse(value []byte, err error, conn net.Conn) error {
@@ -148,32 +223,70 @@ func sendResponse(value []byte, err error, conn net.Conn) error {
 }
 
 func (s *Server) get(conn net.Conn, r *bufio.Reader) error {
-	database, table, k, e := s.readGetDataInfo(r,conn)
-	log.Println(database, table, k)
+	database,table,rowKey,key,startTime,endTime,st,e := s.readGetDataInfo(r,conn)
 	if e != nil {
 		return e
 	}
-	v, db, e := s.Get(database, table, k)
-	defer db.Close()
-	return sendResponse(v, e, conn)
+	switch st {
+	case "c":
+		v,e := s.GetKv(key)
+		return sendResponse(v, e, conn)
+	case "b":
+		v, db, e := s.GetDBandKV(database, table, key)
+		defer db.Close()
+		return sendResponse(v, e, conn)
+	case "t":
+		st,_:= strconv.ParseInt(startTime, 10, 64)
+		et,_:=strconv.ParseInt(endTime, 10, 64)
+		v, db, e := s.GetTimeRangeData(database,table,rowKey,key,st,et)
+		defer db.Close()
+		return sendResponse(v, e, conn)
+	default:
+		return nil
+	}
 }
 
 func (s *Server) set(conn net.Conn, r *bufio.Reader) error {
-	database, table, k, v, e := s.readSetDataInfo(r,conn)
+	database,table,rowKey,key,value,dataTime,st,e := s.readSetDataInfo(r,conn)
 	if e != nil {
 		return e
 	}
-	return sendResponse(nil, s.Set(database, table, k, v), conn)
+	switch st {
+	case "c":
+		return sendResponse(nil, s.SetKv(key,value), conn)
+	case "b":
+		return sendResponse(nil, s.SetDBandKV(database, table,key,value), conn)
+	case "t":
+		dt,_:= strconv.ParseInt(dataTime, 10, 64)
+		return sendResponse(nil, s.SetTSData(database,table,rowKey,key,value,dt),conn)
+	default:
+		return nil
+	}
 }
 
 func (s *Server) del(conn net.Conn, r *bufio.Reader) error {
-	database, table, k, e := s.readGetDataInfo(r,conn)
+	database,table,rowKey,key,startTime,endTime,st,e := s.readGetDataInfo(r,conn)
 	if e != nil {
 		return e
 	}
-	db, e := s.Del(database, table, k)
-	defer db.Close()
-	return sendResponse(nil, e, conn)
+	switch st {
+	case "c":
+		e := s.DelKv(key)
+		return sendResponse(nil,e, conn)
+	case "b":
+		db, e := s.DelDBandKV(database, table, key)
+		defer db.Close()
+		return sendResponse(nil, e, conn)
+	case "t":
+		st,_:= strconv.ParseInt(startTime, 10, 64)
+		et,_:=strconv.ParseInt(endTime, 10, 64)
+		db, e := s.DelTSData(database,table,rowKey,key,st,et)
+		defer db.Close()
+		return sendResponse(nil,e,conn)
+	default:
+		return nil
+	}
+
 }
 
 func (s *Server) process(conn net.Conn) {

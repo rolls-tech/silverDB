@@ -21,7 +21,7 @@ func (h *cacheHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if m == http.MethodPut {
 		b, _ := ioutil.ReadAll(r.Body)
 		if len(b) != 0 {
-			e := h.Set("", "", key, b)
+			e := h.SetTSData("","","",key, b,0)
 			if e != nil {
 				log.Println(e)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -30,7 +30,7 @@ func (h *cacheHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if m == http.MethodGet {
-		b, _, e := h.Get("", "", key)
+		b, _, e := h.GetTimeRangeData("", "","", key,0,0)
 		if e != nil {
 			log.Println(e)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -43,7 +43,7 @@ func (h *cacheHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Write(b)
 	}
 	if m == http.MethodDelete {
-		_, e := h.Del("", "", key)
+		_, e := h.DelTSData("", "","", key,0,0)
 		if e != nil {
 			log.Println(e)
 			w.WriteHeader(http.StatusInternalServerError)

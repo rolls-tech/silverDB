@@ -14,7 +14,7 @@ var typ, node, clus string
 //var dataPath,db,table string
 
 func init() {
-	flag.StringVar(&typ, "type", "bolt", "storage type")
+	flag.StringVar(&typ, "type", "tss", "storage type")
 	//flag.StringVar(&dataPath,"dataPath","D:\\dev\\silver\\testdata1","data path")
 	//flag.StringVar(&db,"dbName","test","dbName")
 	//flag.StringVar(&table,"table","test-table","tableName")
@@ -91,6 +91,7 @@ func initNodes() (nodeList,[]string){
 
 
 func main() {
+
 	allNodes,_:=initNodes()
 	node1:=allNodes.nodes[0]
 	//node1

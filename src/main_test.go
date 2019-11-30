@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"silver/cluster"
 	"silver/http"
 	"silver/storage"
@@ -41,9 +40,8 @@ func TestNode2(t2 *testing.T) {
 		cluAddr:  "127.0.0.1",
 	}
 
-	c2 := storage.New("bolt",node2.dataDir)
+	c2 := storage.New("tss",node2.dataDir)
 	n2, err := cluster.New(node2.cluAddr,node1.cluAddr)
-	log.Println(n2)
 	if err != nil {
 		panic(err)
 	}

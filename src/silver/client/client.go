@@ -20,12 +20,15 @@ type ConfigClient struct {
 type Cmd struct {
 	Name     string
 	DataBase string
-	Bucket   string
+	Table   string
+	RowKey  string
+	DataTime string
+	StartTime string
+	EndTime string
 	Key      string
 	Value    string
 	Error    error
 }
-
 
 type Client struct {
 	net.Conn
@@ -62,13 +65,13 @@ func (conf *ConfigClient) PipelineRun(c *Client) {
 	}
 	for _, cmd := range conf.Cmds {
 		if conf.OperateType == "get" {
-			c.sendGet(cmd.DataBase, cmd.Bucket, cmd.Key, conf.StorageType)
+			c.sendGet(cmd.DataBase, cmd.Table,cmd.RowKey,cmd.Key,conf.StorageType,cmd.StartTime,cmd.EndTime)
 		}
 		if conf.OperateType == "set" {
-			c.sendSet(cmd.DataBase, cmd.Bucket, cmd.Key, cmd.Value, conf.StorageType)
+			c.sendSet(cmd.DataBase, cmd.Table, cmd.RowKey,cmd.Key,cmd.Value,conf.StorageType,cmd.DataTime)
 		}
 		if conf.OperateType == "del" {
-			c.sendDel(cmd.DataBase, cmd.Bucket, cmd.Key, conf.StorageType)
+			c.sendDel(cmd.DataBase, cmd.Table,cmd.RowKey, cmd.Key, conf.StorageType,cmd.DataTime,cmd.EndTime)
 		}
 	}
 	for _, cmd := range conf.Cmds {
@@ -79,19 +82,19 @@ func (conf *ConfigClient) PipelineRun(c *Client) {
 
 func (conf *ConfigClient) Run(c *Client,cmd Cmd) {
 	if conf.OperateType == "get" {
-		c.sendGet(cmd.DataBase, cmd.Bucket, cmd.Key, conf.StorageType)
+		c.sendGet(cmd.DataBase, cmd.Table,cmd.RowKey,cmd.Key,conf.StorageType,cmd.StartTime,cmd.EndTime)
 		cmd.Value, cmd.Error = c.processResponse(&cmd)
 		fmt.Println(cmd.Value)
 		return
 	}
 	if conf.OperateType == "set" {
-		c.sendSet(cmd.DataBase, cmd.Bucket, cmd.Key, cmd.Value, conf.StorageType)
+		c.sendSet(cmd.DataBase, cmd.Table, cmd.RowKey,cmd.Key,cmd.Value,conf.StorageType,cmd.DataTime)
 		cmd.Value, cmd.Error = c.processResponse(&cmd)
 		fmt.Println(cmd.Value)
 		return
 	}
 	if conf.OperateType == "del" {
-		c.sendDel(cmd.DataBase, cmd.Bucket, cmd.Key, conf.StorageType)
+		c.sendDel(cmd.DataBase, cmd.Table,cmd.RowKey, cmd.Key, conf.StorageType,cmd.DataTime,cmd.EndTime)
 		cmd.Value, cmd.Error = c.processResponse(&cmd)
 		fmt.Println(cmd.Value)
 		return
@@ -99,68 +102,115 @@ func (conf *ConfigClient) Run(c *Client,cmd Cmd) {
 	panic("unknown cmd name " + cmd.Name)
 }
 
-func (c *Client) sendGet(dataBase, bucket, key, storageType string) {
+func (c *Client) sendGet(dataBase,table,rowKey,key,storageType,startTime,endTime string) {
 	var klen int
+	var dblen int
+	var tblen int
 	klen = len(key)
-	if storageType == "cache" {
-		_, err := c.Write([]byte(fmt.Sprintf("G%d,%s", klen, key)))
+	dblen= len(dataBase)
+	tblen= len(table)
+	switch storageType {
+	case "cache":
+		_, err := c.Write([]byte(fmt.Sprintf("Gc%d,%s",klen,key)))
 		if err != nil {
 			log.Println(err.Error())
 		}
-	} else {
-		dblen := len(dataBase)
-		tlen := len(bucket)
-		if dblen == 0 || tlen == 0 {
+	case "bolt":
+		if dblen == 0 || tblen == 0 {
 			log.Println("DataBase and Table is required not null!")
 		}
-		_, err := c.Write([]byte(fmt.Sprintf("G%d,%d,%d,%s%s%s", dblen, tlen, klen, dataBase, bucket, key)))
+		_, err := c.Write([]byte(fmt.Sprintf("Gb%d,%d,%d,%s%s%s",dblen,tblen,klen,dataBase,table,key)))
 		if err != nil {
 			log.Println(err.Error())
 		}
+	case "tss":
+		rklen:=len(rowKey)
+		stlen:=len(startTime)
+		etlen:=len(endTime)
+		if dblen == 0 || tblen == 0 || rklen == 0 || stlen == 0 || etlen == 0 {
+			log.Println("DataBase and Table and rowKey and startTime and endTime is required not null!")
+		}
+		_, err := c.Write([]byte(fmt.Sprintf("Gt%d,%d,%d,%d,%d,%d,%s%s%s%s%s%s",dblen,tblen,rklen,klen,stlen,etlen,dataBase,table,rowKey,key,startTime,endTime)))
+		if err != nil {
+			log.Println(err.Error())
+		}
+	default:
+		log.Println("not supported storage type")
 	}
 }
 
-func (c *Client) sendSet(database, bucket, key, value, storageType string) {
+func (c *Client) sendSet(database,table,rowKey,key,value,storageType,dataTime string){
 	var klen int
 	var vlen int
+	var dblen int
+	var tblen int
 	klen = len(key)
 	vlen = len(value)
-	if storageType == "cache" {
-		_, err := c.Write([]byte(fmt.Sprintf("S%d,%d,%s%s", klen, vlen, key, value)))
+	dblen= len(database)
+	tblen= len(table)
+	switch storageType {
+	case "cache":
+		_, err := c.Write([]byte(fmt.Sprintf("Sc%d,%d,%s%s",klen, vlen, key, value)))
 		if err != nil {
 			log.Println(err)
 		}
-	} else {
-		dblen := len(database)
-		tlen := len(bucket)
-		if dblen == 0 || tlen == 0 {
+	case "bolt":
+		if dblen == 0 || tblen == 0 {
 			log.Println("DataBase and Table is required not null!")
 		}
-		_, err := c.Write([]byte(fmt.Sprintf("S%d,%d,%d,%d,%s%s%s%s", dblen, tlen, klen, vlen, database, bucket, key, value)))
+		_, err := c.Write([]byte(fmt.Sprintf("Sb%d,%d,%d,%d,%s%s%s%s", dblen,tblen,klen,vlen,database,table,key,value)))
 		if err != nil {
 			log.Println(err)
 		}
+	case "tss":
+		rklen:=len(rowKey)
+		dtlen:=len(dataTime)
+		if dblen == 0 || tblen == 0 || rklen == 0 {
+			log.Println("DataBase and Table and rowKey is required not null!")
+		}
+		_, err := c.Write([]byte(fmt.Sprintf("St%d,%d,%d,%d,%d,%d,%s%s%s%s%s%s", dblen,tblen,rklen,klen,vlen,dtlen,database,table,rowKey,key,value,dataTime)))
+		if err != nil {
+			log.Println(err)
+		}
+	default:
+		log.Println("not supported storage type")
 	}
 }
 
-func (c *Client) sendDel(database, bucket, key, storageType string) {
+func (c *Client) sendDel(database,table,rowKey,key,storageType,dataTime,endTime string) {
 	var klen int
+	var dblen int
+	var tblen int
 	klen = len(key)
-	if storageType == "cache" {
-		_, err := c.Write([]byte(fmt.Sprintf("D%d,%s", klen, key)))
+	dblen= len(database)
+	tblen= len(table)
+	switch storageType {
+	case "cache":
+		_, err := c.Write([]byte(fmt.Sprintf("Dc%d,%s",klen,key)))
 		if err != nil {
 			log.Println(err.Error())
 		}
-	} else {
-		dblen := len(database)
-		tlen := len(bucket)
-		if dblen == 0 || tlen == 0 {
+	case "bolt":
+		if dblen == 0 || tblen == 0 {
 			log.Println("DataBase and Table is required not null!")
 		}
-		_, err := c.Write([]byte(fmt.Sprintf("D%d,%d,%d,%s", dblen, tlen, klen, key)))
+		_, err := c.Write([]byte(fmt.Sprintf("Db%d,%d,%d,%s%s%s",dblen, tblen, klen,database,table,key)))
 		if err != nil {
 			log.Println(err.Error())
 		}
+	case "tss":
+		rklen:=len(rowKey)
+		dtlen:=len(dataTime)
+		etlen:=len(endTime)
+		if dblen == 0 || tblen == 0 || rklen ==0 || dtlen == 0 {
+			log.Println("DataBase and Table and rowKey and dataTime is required not null!")
+		}
+		_, err := c.Write([]byte(fmt.Sprintf("Dt%d,%d,%d,%d,%d,%d,%s%s%s%s%s%s",dblen,tblen,rklen,klen,dtlen,etlen,database,table,rowKey,key,dataTime,endTime)))
+		if err != nil {
+			log.Println(err.Error())
+		}
+	default:
+		log.Println("not supported storage type")
 	}
 }
 
@@ -185,7 +235,6 @@ func (c *Client) processResponse(cmd *Cmd) (string,error) {
 	}
 	if op == 'R' {
 		value,_:=c.recvResponse()
-		log.Println(value)
         redirect:=strings.Split(value,":")
         addr:=redirect[1]
 		var cmds []*Cmd

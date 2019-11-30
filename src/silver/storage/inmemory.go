@@ -11,7 +11,19 @@ type inMemory struct {
 	Stat
 }
 
-func (c *inMemory) Set(database, table, k string, v []byte) error {
+func (c *inMemory) SetKv(key string,value []byte) error {
+    return nil
+}
+
+func (c *inMemory) GetKv(key string) ([]byte,error) {
+       return nil,nil
+}
+
+func (c *inMemory) DelKv(key string) error {
+return nil
+}
+
+func (c *inMemory) SetDBandKV(database, table, k string, v []byte) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	var key string
@@ -25,7 +37,7 @@ func (c *inMemory) Set(database, table, k string, v []byte) error {
 	return nil
 }
 
-func (c *inMemory) Get(database, table, k string) ([]byte, *bolt.DB, error) {
+func (c *inMemory) GetDBandKV(database, table, k string) ([]byte, *bolt.DB, error) {
 	c.mutex.RLock()
 	defer c.mutex.RLock()
 	var key string
@@ -33,7 +45,7 @@ func (c *inMemory) Get(database, table, k string) ([]byte, *bolt.DB, error) {
 	return c.c[key], nil, nil
 }
 
-func (c *inMemory) Del(database, table, k string) (*bolt.DB, error) {
+func (c *inMemory) DelDBandKV(database, table, k string) (*bolt.DB, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	var key string
@@ -45,6 +57,19 @@ func (c *inMemory) Del(database, table, k string) (*bolt.DB, error) {
 	}
 	return nil, nil
 }
+
+func (c inMemory)  SetTSData(database,table,rowKey,key string,value []byte,dataTime int64) error {
+	return nil
+}
+
+func (c *inMemory) GetTimeRangeData(database,table,rowKey,key string,startTime,endTime int64) ([]byte,*bolt.DB,error) {
+	return nil,nil,nil
+}
+
+func (c *inMemory) DelTSData(database,table,rowkey,key string,dataTime,endTime int64) (*bolt.DB,error) {
+	return nil,nil
+}
+
 
 func (c *inMemory) GetStat() Stat {
 	return c.Stat

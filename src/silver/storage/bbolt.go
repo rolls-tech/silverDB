@@ -4,7 +4,6 @@ import (
 	"github.com/boltdb/bolt"
 	"log"
 	"math/rand"
-	"os"
 	"sync"
 	"time"
 )
@@ -17,18 +16,19 @@ type bbolt struct {
 	Stat
 }
 
-type bucket struct {
-	mutex      sync.RWMutex
-	BucketName string
-	DdName     string
-	MinKey     string
-	MaxKey     string
-	MinTime    int64
-	MaxTime    int64
-	DataFile   string
+func (b *bbolt) SetKv(key string, value []byte) error {
+	return nil
 }
 
-func (b *bbolt) Set(dataBase, table, k string, v []byte) error {
+func (b *bbolt) GetKv(key string) ([]byte, error) {
+	return nil,nil
+}
+
+func (b *bbolt) DelKv(key string) error {
+	return nil
+}
+
+func (b *bbolt) SetDBandKV(dataBase, table, k string, v []byte) error {
 	dataFile, _ := b.setDataFile(dataBase, table, k)
 	db := b.openDB(dataFile)
 	defer db.Close()
@@ -49,7 +49,7 @@ func (b *bbolt) Set(dataBase, table, k string, v []byte) error {
 	return nil
 }
 
-func (b *bbolt) Get(dataBase, table, k string) ([]byte, *bolt.DB, error) {
+func (b *bbolt) GetDBandKV(dataBase, table, k string) ([]byte, *bolt.DB, error) {
 	dataFile, _ := b.getDataFile(dataBase, table, k)
 	if dataFile != "" {
 		db := b.openDB(dataFile)
@@ -65,7 +65,7 @@ func (b *bbolt) Get(dataBase, table, k string) ([]byte, *bolt.DB, error) {
 	return nil,nil,nil
 }
 
-func (b *bbolt) Del(dataBase, table, k string) (*bolt.DB, error) {
+func (b *bbolt) DelDBandKV(dataBase, table, k string) (*bolt.DB, error) {
 	dataFile, _ := b.getDataFile(dataBase, table, k)
 	if dataFile !="" {
 		db := b.openDB(dataFile)
@@ -88,6 +88,29 @@ func (b *bbolt) Del(dataBase, table, k string) (*bolt.DB, error) {
 		return db, nil
 	}
 	return nil,nil
+}
+
+func (b *bbolt) SetTSData(dataBase,table,rowKey,k string,v []byte,dataTime int64) error {
+	return nil
+}
+
+func (b *bbolt) GetTimeRangeData(dataBase,table,rowKey,k string,startTime,endTime int64) ([]byte, *bolt.DB, error) {
+	return nil,nil,nil
+}
+
+func (b *bbolt) DelTSData(dataBase,table,rowKey,k string,startTime,endTime int64) (*bolt.DB, error) {
+	return nil,nil
+}
+
+type bucket struct {
+	mutex      sync.RWMutex
+	BucketName string
+	DdName     string
+	MinKey     string
+	MaxKey     string
+	MinTime    int64
+	MaxTime    int64
+	DataFile   string
 }
 
 func (b *bbolt) GetStat() Stat {
@@ -194,7 +217,6 @@ func (b *bbolt) setDataFile(dbName, bucketName string, key string) (string, erro
 	return dataFile, nil
 }
 
-
 func (b *bbolt) getDataFile(dbName, bucketName string, key string) (string, error) {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
@@ -212,13 +234,4 @@ func (b *bbolt) getDataFile(dbName, bucketName string, key string) (string, erro
 	return dataFile, nil
 }
 
-func fileExist(file string) bool {
-	_, err := os.Stat(file)
-	if err != nil {
-		if os.IsExist(err) {
-			return true
-		}
-		return false
-	}
-	return true
-}
+
