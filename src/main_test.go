@@ -31,13 +31,13 @@ func TestNode2(t2 *testing.T) {
 		dataDir:  dataDir1,
 		httpAddr: "127.0.0.1:12345",
 		tcpAddr:  "127.0.0.1:12346",
-		cluAddr:  "127.0.0.1",
+		cluAddr:  "127.0.0.1:7947",
 	}
 	node2:=testConfig{
 		dataDir:  dataDir2,
 		httpAddr: "127.0.0.1:12347",
 		tcpAddr:  "127.0.0.1:12348",
-		cluAddr:  "127.0.0.1",
+		cluAddr:  "127.0.0.1:7946",
 	}
 
 	c2 := storage.New("tss",node2.dataDir)

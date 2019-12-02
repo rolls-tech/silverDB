@@ -236,10 +236,12 @@ func (c *Client) processResponse(cmd *Cmd) (string,error) {
 	if op == 'R' {
 		value,_:=c.recvResponse()
         redirect:=strings.Split(value,":")
-        addr:=redirect[1]
+        log.Println(value)
+        addr:=redirect[0]
 		var cmds []*Cmd
 		cmds = append(cmds, cmd)
-		c := NewClient(addr+":12348", "bolt", cmds, "set")
+		c := NewClient(addr+":12348", "tss", cmds, "set")
+		log.Println(c)
 		client:=c.newClient()
 		c.Run(client,*cmds[0])
 	}

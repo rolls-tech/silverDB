@@ -43,7 +43,7 @@ func (s *Server) readSetDataInfo(r *bufio.Reader,conn net.Conn) (string, string,
 		return "", "", "", "",nil,"",st,e
 	}
 	addr, ok := s.ShouldProcess(database+table+rowKey+key)
-	log.Println(addr)
+	log.Println(database+table+rowKey+key)
 	if !ok {
 		alen:= len(addr)
 		_, e := conn.Write([]byte(fmt.Sprintf("R%d,%s",alen,addr)))
@@ -213,7 +213,6 @@ func sendResponse(value []byte, err error, conn net.Conn) error {
 	if err != nil {
 		errString := err.Error()
 		tmp := fmt.Sprintf("-%d", len((errString)+errString))
-		log.Println(tmp)
 		_, e := conn.Write([]byte(tmp))
 		return e
 	}

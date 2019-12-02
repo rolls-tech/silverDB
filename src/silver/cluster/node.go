@@ -4,8 +4,9 @@ import (
 	"github.com/hashicorp/memberlist"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"stathat.com/c/consistent"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -33,17 +34,21 @@ func (n *node) ShouldProcess(key string) (string,bool) {
 
 
 func New(addr string,cluster string) (Node,error) {
-	rand.Seed(time.Now().Unix())
-	n := rand.Intn(2)
+	var p1 string
+	//a1=strings.Split(addr,":")[0]
+	p1=strings.Split(addr,":")[1]
+	p, err := strconv.Atoi(p1)
+	//rand.Seed(time.Now().Unix())
+	//n := rand.Intn(2)
 	//conf:=memberlist.DefaultLANConfig()
-    bindPorts:=[]int{7946,7947}
+   // bindPorts:=[]int{7946,7947}
 	//bindPort, err := strconv.Atoi(strings.Split(addr,":")[1])
 	Localconf:=memberlist.DefaultLocalConfig()
 	//hostName,_:=os.Hostname()
 	Localconf.Name=addr
-	Localconf.BindAddr = addr
-	Localconf.BindPort=bindPorts[n]
-	log.Println(n)
+	Localconf.BindAddr=addr
+	Localconf.BindPort=p
+	Localconf.AdvertisePort=p
 	Localconf.LogOutput=ioutil.Discard
 	l,err:=memberlist.Create(Localconf)
 	if err !=nil {

@@ -30,17 +30,17 @@ func TestClient_Operate(t *testing.T) {
 	var cmds []*Cmd
 	cmd := Cmd {
 		Name:     "set",
-		DataBase: "vcwqwqwqwqwv",
-		Table:   "tesdst4cv44",
-		RowKey:  "addsddqwqwqwsfd",
+		DataBase: "testdb2",
+		Table:   "test2",
+		RowKey:  "zzz",
 		DataTime: "",
 		StartTime: "",
 		EndTime: "",
-		Key:      "dfds",
+		Key:      "bbb",
 		Value:    "123",
 		Error:    nil,
 	}
 	cmds = append(cmds, &cmd)
-	c := NewClient("127.0.0.1:12348", "tss", cmds, cmd.Name)
+	c := NewClient("127.0.0.1:12346", "tss", cmds, cmd.Name)
 	c.Operate()
 }

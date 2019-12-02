@@ -61,10 +61,6 @@ func (t *tss) SetTSData(dataBase, tableName, rowKey ,key string, value []byte,da
 		if err != nil {
 			return err
 		}
-		/*err = table.Put([]byte(key+"time"),[]byte(startTime))
-		if err != nil {
-			return err
-		} */
 		t.Addstat(key, value)
 		return nil
 	}); err != nil {
@@ -152,7 +148,7 @@ func (t *tss) setTableFile(dataBase,tableName string,dataTime int64) (string,str
 		startTime,endTime=getSandETime(nowTime,24*time.Hour)
 		tableFile=t.scanDataDir(dataBase,tableName,startTime,endTime)
 		return tableFile,startTime
-		}
+	}
 	startTime,endTime=getSandETime(time.Unix(0,dataTime),24*time.Hour)
 	tableFile=t.scanDataDir(dataBase,tableName,startTime,endTime)
 	return tableFile,startTime
@@ -188,8 +184,10 @@ func (t *tss) getTableFile(dataBase,tableName string,startTime string) string {
 func (t *tss) scanDataDir(dataBase,tableName,startTime,endTime string) string {
 	var tableFile string
 	dataBaseDir,exist:=t.dataBaseDirIsExist(dataBase)
-	if exist==true {
+	log.Println(dataBaseDir)
+	if exist == true {
 		fileList,err:=ioutil.ReadDir(dataBaseDir)
+		log.Println(fileList)
 		if err !=nil {
 			log.Println(err)
 		}
@@ -202,15 +200,13 @@ func (t *tss) scanDataDir(dataBase,tableName,startTime,endTime string) string {
 			tn:=tableInfo[0]
 			st:=tableInfo[1]
 			et:=tableInfo[2]
-			log.Println(startTime)
-			log.Println(endTime)
-			if strings.Compare(tn,tableName)==0 && strings.Compare(startTime,st) > 0 && strings.Compare(startTime,et) <0 {
+			if strings.Compare(tn,tableName)==0 && strings.Compare(startTime,st) == 1 && strings.Compare(startTime,et)==-1 {
 				tableFile=dataBaseDir+sep+file.Name()
 				return tableFile
 			}
+		 }
 			tableFile=dataBaseDir+sep+tableName+"-"+startTime+"-"+endTime+".db"
 			return tableFile
-		}
 	 }
 		rand.Seed(time.Now().Unix())
 		n := rand.Intn(len(t.dataDir))
