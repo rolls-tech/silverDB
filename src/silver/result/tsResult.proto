@@ -1,0 +1,17 @@
+syntax="proto3";
+
+package result;
+
+message TsResult{
+    string DataBase=1;
+    string TableName=2;
+    string RowKey=3;
+    string Key=4;
+    repeated tsField Data=5;
+}
+
+message tsField {
+    bytes timestamp=1;
+    bytes value=2;
+}
+

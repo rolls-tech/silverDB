@@ -4,6 +4,7 @@ import (
 	"github.com/boltdb/bolt"
 	"log"
 	"math/rand"
+	"silver/result"
 	"sync"
 	"time"
 )
@@ -94,8 +95,8 @@ func (b *bbolt) SetTSData(dataBase,table,rowKey,k string,v []byte,dataTime int64
 	return nil
 }
 
-func (b *bbolt) GetTimeRangeData(dataBase,table,rowKey,k string,startTime,endTime int64) ([]byte, *bolt.DB, error) {
-	return nil,nil,nil
+func (b *bbolt) GetTimeRangeData(dataBase,table,rowKey,k string,startTime,endTime int64) (result.TsResult, *bolt.DB, error) {
+	return result.TsResult{},nil,nil
 }
 
 func (b *bbolt) DelTSData(dataBase,table,rowKey,k string,startTime,endTime int64) (*bolt.DB, error) {

@@ -4,6 +4,7 @@
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/src/github.com/armon/go-metrics" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/src/github.com/boltdb/bolt" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/src/github.com/gogo/protobuf" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/src/github.com/google/btree" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/src/github.com/hashicorp/errwrap" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/src/github.com/hashicorp/go-immutable-radix" vcs="Git" />

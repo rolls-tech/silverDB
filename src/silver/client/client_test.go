@@ -29,15 +29,15 @@ func TestClient_Operate(t *testing.T) {
 
 	var cmds []*Cmd
 	cmd := Cmd {
-		Name:     "set",
-		DataBase: "testdb2",
-		Table:   "test2",
+		Name:     "get",
+		DataBase: "testdb",
+		Table:   "test",
 		RowKey:  "zzz",
 		DataTime: "",
-		StartTime: "",
-		EndTime: "",
+		StartTime: "1575703715860307100",
+		EndTime: "1575790115860307100",
 		Key:      "bbb",
-		Value:    "123",
+		Value:    "12345",
 		Error:    nil,
 	}
 	cmds = append(cmds, &cmd)

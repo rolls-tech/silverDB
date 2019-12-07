@@ -3,6 +3,7 @@ package storage
 import (
 	"github.com/boltdb/bolt"
 	"log"
+	"silver/result"
 )
 
 type Storage interface {
@@ -13,7 +14,7 @@ type Storage interface {
 	GetDBandKV(string,string,string) ([]byte,*bolt.DB,error)
 	DelDBandKV(string,string,string) (*bolt.DB,error)
 	SetTSData(string,string,string,string,[]byte,int64) error
-	GetTimeRangeData(string,string,string,string,int64,int64) ([]byte,*bolt.DB,error)
+	GetTimeRangeData(string,string,string,string,int64,int64) (result.TsResult,*bolt.DB,error)
 	DelTSData(string,string,string,string,int64,int64) (*bolt.DB,error)
 	GetStat() Stat
 }

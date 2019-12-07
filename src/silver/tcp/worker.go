@@ -4,10 +4,12 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"io"
 	"log"
 	"net"
 	"silver/cluster"
+	"silver/result"
 	"silver/storage"
 	"strconv"
 	"strings"
@@ -43,7 +45,6 @@ func (s *Server) readSetDataInfo(r *bufio.Reader,conn net.Conn) (string, string,
 		return "", "", "", "",nil,"",st,e
 	}
 	addr, ok := s.ShouldProcess(database+table+rowKey+key)
-	log.Println(database+table+rowKey+key)
 	if !ok {
 		alen:= len(addr)
 		_, e := conn.Write([]byte(fmt.Sprintf("R%d,%s",alen,addr)))
@@ -216,10 +217,23 @@ func sendResponse(value []byte, err error, conn net.Conn) error {
 		_, e := conn.Write([]byte(tmp))
 		return e
 	}
-	vlen := fmt.Sprintf("%d,", len(value))
-	_, e := conn.Write(append([]byte(vlen), value...))
+	data := fmt.Sprintf("V%d,%s", len(value),value)
+	_, e := conn.Write(append([]byte(data)))
 	return e
 }
+
+func sendTsResponse(value result.TsResult, err error, conn net.Conn) error {
+	if err != nil {
+		errString := err.Error()
+		tmp := fmt.Sprintf("-%d", len((errString)+errString))
+		_, e := conn.Write([]byte(tmp))
+		return e
+	}
+	data,_:=proto.Marshal(&value)
+	_, e := conn.Write(append([]byte(fmt.Sprintf("V%d,%s,",len(data),string(data)))))
+	return e
+}
+
 
 func (s *Server) get(conn net.Conn, r *bufio.Reader) error {
 	database,table,rowKey,key,startTime,endTime,st,e := s.readGetDataInfo(r,conn)
@@ -239,7 +253,7 @@ func (s *Server) get(conn net.Conn, r *bufio.Reader) error {
 		et,_:=strconv.ParseInt(endTime, 10, 64)
 		v, db, e := s.GetTimeRangeData(database,table,rowKey,key,st,et)
 		defer db.Close()
-		return sendResponse(v, e, conn)
+		return sendTsResponse(v, e, conn)
 	default:
 		return nil
 	}

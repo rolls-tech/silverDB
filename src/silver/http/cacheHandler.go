@@ -30,7 +30,7 @@ func (h *cacheHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if m == http.MethodGet {
-		b, _, e := h.GetTimeRangeData("", "","", key,0,0)
+		/*b, _, e := h.GetTimeRangeData("", "","", key,0,0)
 		if e != nil {
 			log.Println(e)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -40,7 +40,7 @@ func (h *cacheHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		w.Write(b)
+		w.Write(b) */
 	}
 	if m == http.MethodDelete {
 		_, e := h.DelTSData("", "","", key,0,0)

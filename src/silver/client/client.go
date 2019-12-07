@@ -3,9 +3,11 @@ package client
 import (
 	"bufio"
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"io"
 	"log"
 	"net"
+	"silver/result"
 	"strconv"
 	"strings"
 )
@@ -226,6 +228,7 @@ func readLen(r *bufio.Reader) string {
 }
 
 func (c *Client) processResponse(cmd *Cmd) (string,error) {
+	var value string
 	op, e := c.r.ReadByte()
 	if e != nil {
 		if e != io.EOF {
@@ -233,32 +236,37 @@ func (c *Client) processResponse(cmd *Cmd) (string,error) {
 		}
 		return "",nil
 	}
-	if op == 'R' {
-		value,_:=c.recvResponse()
-        redirect:=strings.Split(value,":")
-        log.Println(value)
-        addr:=redirect[0]
+	switch op {
+	case 'R':
+		v,_:=c.recvResponse()
+		redirect:=strings.Split(string(v),":")
+		addr:=redirect[0]
 		var cmds []*Cmd
 		cmds = append(cmds, cmd)
-		c := NewClient(addr+":12348", "tss", cmds, "set")
+		c := NewClient(addr+":12348", "tss", cmds, cmd.Name)
 		log.Println(c)
 		client:=c.newClient()
 		c.Run(client,*cmds[0])
+	case 'V':
+		v,e:= c.recvResponse()
+		data:=&result.TsResult{}
+		_=proto.Unmarshal(v,data)
+		log.Println(data)
+		return value,e
 	}
-	value,error := c.recvResponse()
-	return value,error
+	return value,e
 }
 
-func (c *Client) recvResponse() (string, error) {
+func (c *Client) recvResponse() ([]byte, error) {
 	l1 := readLen(c.r)
 	vlen, e := strconv.Atoi(l1)
 	if vlen == 0 {
-		return "", nil
+		return nil, nil
 	}
 	value := make([]byte, vlen)
 	_, e = io.ReadFull(c.r, value)
 	if e != nil {
-		return "", e
+		return nil, e
 	}
-	return string(value), nil
+	return value, nil
 }
