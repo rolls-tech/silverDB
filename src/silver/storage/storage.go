@@ -4,6 +4,7 @@ import (
 	"github.com/boltdb/bolt"
 	"log"
 	"silver/result"
+	"sync"
 )
 
 type Storage interface {
@@ -14,20 +15,20 @@ type Storage interface {
 	GetDBandKV(string,string,string) ([]byte,*bolt.DB,error)
 	DelDBandKV(string,string,string) (*bolt.DB,error)
 	SetTSData(string,string,string,string,[]byte,int64) error
-	GetTimeRangeData(string,string,string,string,int64,int64) (result.TsResult,*bolt.DB,error)
+	GetTimeRangeData(*sync.WaitGroup,string,string,string,string,int64,int64,[]*result.TsField) ([]*result.TsField,error)
 	DelTSData(string,string,string,string,int64,int64) (*bolt.DB,error)
 	GetStat() Stat
 }
 
 func New(typ string, dataPath []string) Storage {
 	var s Storage
-	if typ == "cache" {
+	if typ == "kvCache" {
 		s = NewInMemory()
 	}
-	if typ == "bolt" {
+	if typ == "dbStorage" {
 		s = NewBolt(dataPath)
 	}
-	if typ == "tss" {
+	if typ == "tsStorage" {
 		s = NewTss(dataPath)
 	}
 	if s == nil {

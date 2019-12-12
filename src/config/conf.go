@@ -1,8 +1,8 @@
 package config
 
 import (
+	"fmt"
 	"github.com/toml"
-	"log"
 )
 
 type Cache struct {
@@ -25,6 +25,6 @@ func GetStorageConf(path string) *Storage {
 	if _, err := toml.DecodeFile(path, &c); err != nil {
 		panic(err)
 	}
-	log.Println(c)
+	fmt.Println(c)
 	return &c
 }

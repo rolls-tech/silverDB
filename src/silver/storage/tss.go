@@ -70,46 +70,41 @@ func (t *tss) SetTSData(dataBase, tableName, rowKey ,key string, value []byte,da
 	return nil
 }
 
-func (t *tss) GetTimeRangeData(dataBase, tableName, rowKey, key string,startTime,endTime int64) (result.TsResult, *bolt.DB, error) {
-	st:= strconv.FormatInt(startTime,10)
-	et:=strconv.FormatInt(endTime,10)
-	tableFile:= t.getTableFile(dataBase, tableName,st,et)
-	tr:=&result.TsResult{
-		DataBase:             dataBase,
-		TableName:            tableName,
-		RowKey:               rowKey,
-		Key:                  key,
-		Data:                 make([]*result.TsField,0),
-		XXX_NoUnkeyedLiteral: struct{}{},
-		XXX_unrecognized:     nil,
-		XXX_sizecache:        0,
-	}
-	if tableFile != "" {
-		db := t.openDB(tableFile)
-		if err := db.View(func(tx *bolt.Tx) error {
-			b := tx.Bucket([]byte(rowKey+key))
-			c:=b.Cursor()
-			for k,v:=c.First();k!=nil;k,v=c.Next() {
-				if strings.Compare(string(k),st)>=0 && strings.Compare(string(k),et)<=0 {
-					log.Println(string(k),string(v))
-					tsf:=&result.TsField{
-						Timestamp:            k,
-						Value:                v,
-						XXX_NoUnkeyedLiteral: struct{}{},
-						XXX_unrecognized:     nil,
-						XXX_sizecache:        0,
+func (t *tss) GetTimeRangeData(wg *sync.WaitGroup,dataBase, tableName, rowKey, key string,startTime,endTime int64,data []*result.TsField) ([]*result.TsField, error) {
+	st := strconv.FormatInt(startTime, 10)
+	et := strconv.FormatInt(endTime, 10)
+	tableFileList := t.getTableFile(dataBase, tableName, st, et)
+	if len(tableFileList) != 0 {
+		for _, tableFile := range tableFileList {
+			go func() {
+				wg.Add(1)
+				db:= t.openDB(tableFile)
+				defer db.Close()
+				if err:= db.View(func(tx *bolt.Tx) error {
+					b := tx.Bucket([]byte(rowKey + key))
+					c := b.Cursor()
+					for k, v := c.First(); k != nil; k, v = c.Next() {
+						if strings.Compare(string(k), st) >= 0 && strings.Compare(string(k), et) <= 0 {
+							tsf := &result.TsField{
+								Timestamp:            k,
+								Value:                v,
+								XXX_NoUnkeyedLiteral: struct{}{},
+								XXX_unrecognized:     nil,
+								XXX_sizecache:        0,
+							}
+							data = append(data, tsf)
+						}
 					}
-					tr.Data=append(tr.Data,tsf)
+					return nil
+				}); err != nil {
+					log.Println(err)
 				}
-			}
-			return nil
-		}); err != nil {
-			log.Println(err)
+				wg.Done()
+				log.Println(data)
+			}()
 		}
-
-		return *tr, db, nil
 	}
-	return *tr,nil,nil
+	return data,nil
 }
 
 func (t *tss) DelTSData(dataBase, tableName, rowKey, key string,startTime,endTime int64) (*bolt.DB, error) {
@@ -136,7 +131,6 @@ type table struct {
 func (t *tss) GetStat() Stat {
 	return t.Stat
 }
-
 
 func NewTss(dataDir []string) *tss {
 	return &tss{
@@ -172,10 +166,11 @@ func (t *tss) setTableFile(dataBase,tableName string,dataTime int64) (string,str
 	return tableFile,startTime
 }
 
-func (t *tss) getTableFile(dataBase,tableName,startTime,endTime string) string {
+func (t *tss) getTableFile(dataBase,tableName,startTime,endTime string) []string {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 	var tableFile string
+	var tableFileList []string
 	dataBaseDir,exist:=t.dataBaseDirIsExist(dataBase)
 	if exist == true {
 		fileList,err:=ioutil.ReadDir(dataBaseDir)
@@ -183,20 +178,30 @@ func (t *tss) getTableFile(dataBase,tableName,startTime,endTime string) string {
 			log.Println(err)
 		}
 		if len(fileList) == 0 {
-			return ""
+			return nil
 		}
 		for _,file:=range fileList {
 			tableInfo:=strings.Split(file.Name(),"-")
 			tn:=tableInfo[0]
 			st:=tableInfo[1]
 			et:=strings.Split(tableInfo[2],".")[0]
-			if strings.Compare(tn,tableName)==0 && strings.Compare(startTime,st) >= 0 && strings.Compare(endTime,et) <= 0 {
-				tableFile=dataBaseDir+sep+file.Name()
-				return tableFile
+			if strings.Compare(tn,tableName) == 0 {
+				if strings.Compare(startTime,st) >= 0 && strings.Compare(endTime,et) <= 0 {
+					tableFile=dataBaseDir+sep+file.Name()
+					tableFileList=append(tableFileList,tableFile)
+				}
+				if strings.Compare(startTime,st) < 0 && strings.Compare(endTime,st) >0 && strings.Compare(endTime,et) < 0 {
+					tableFile=dataBaseDir+sep+file.Name()
+					tableFileList=append(tableFileList,tableFile)
+				}
+				if strings.Compare(startTime,st) > 0 && strings.Compare(endTime,et) >0 && strings.Compare(startTime,et) <0{
+					tableFile=dataBaseDir+sep+file.Name()
+					tableFileList=append(tableFileList,tableFile)
+				}
 			}
 		}
 	}
-	return tableFile
+	return tableFileList
 }
 
 func (t *tss) scanDataDir(dataBase,tableName,startTime,endTime string) string {

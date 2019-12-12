@@ -1,0 +1,12 @@
+syntax="proto3";
+
+package result;
+
+message KvResult{
+    repeated kvField Data=1;
+}
+
+message kvField {
+    string key=1;
+    bytes value=2;
+}

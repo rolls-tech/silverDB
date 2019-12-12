@@ -1,0 +1,14 @@
+syntax="proto3";
+
+package result;
+
+message DbResult{
+    string DataBase=1;
+    string TableName=2;
+    repeated dbField Data=5;
+}
+
+message dbField {
+    string key=1;
+    bytes value=2;
+}

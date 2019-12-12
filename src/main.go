@@ -14,7 +14,7 @@ var typ, node, clus string
 //var dataPath,db,table string
 
 func init() {
-	flag.StringVar(&typ, "type", "tss", "storage type")
+	flag.StringVar(&typ, "type", "tsStorage", "storage type")
 	//flag.StringVar(&dataPath,"dataPath","D:\\dev\\silver\\testdata1","data path")
 	//flag.StringVar(&db,"dbName","test","dbName")
 	//flag.StringVar(&table,"table","test-table","tableName")
@@ -100,6 +100,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	go tcp.New(c1, n1).Listen(node1.tcpAddr)
+	go tcp.New(c1, n1).Listen(typ,node1.tcpAddr)
 	http.New(c1, n1).Listen(node1.httpAddr)
 }

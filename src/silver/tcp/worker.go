@@ -2,9 +2,7 @@ package tcp
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	"io"
 	"log"
 	"net"
@@ -20,7 +18,7 @@ type Server struct {
 	cluster.Node
 }
 
-func (s *Server) Listen(addr string) {
+func (s *Server) Listen(storageTyp,addr string) {
 	l, e := net.Listen("tcp", addr)
 	if e != nil {
 		panic(e)
@@ -30,7 +28,7 @@ func (s *Server) Listen(addr string) {
 		if e != nil {
 			panic(e)
 		}
-		go s.process(c)
+		go s.process(c,storageTyp)
 	}
 }
 
@@ -38,7 +36,7 @@ func New(c storage.Storage, n cluster.Node) *Server {
 	return &Server{c, n}
 }
 
-
+/*
 func (s *Server) readSetDataInfo(r *bufio.Reader,conn net.Conn) (string, string, string,string, []byte,string,string,error) {
 	database,table,rowKey,key,value,dataTime,st,e := parseSetData(r)
 	if e != nil {
@@ -72,7 +70,7 @@ func (s *Server) readGetDataInfo(r *bufio.Reader,conn net.Conn) (string, string,
 	}
 	return database,table,rowKey,key,startTime,endTime,st,nil
 }
-
+*/
 func readLen(r *bufio.Reader) (string, error) {
 	tmp, e := r.ReadString(',')
 	if tmp == "" {
@@ -222,19 +220,8 @@ func sendResponse(value []byte, err error, conn net.Conn) error {
 	return e
 }
 
-func sendTsResponse(value result.TsResult, err error, conn net.Conn) error {
-	if err != nil {
-		errString := err.Error()
-		tmp := fmt.Sprintf("-%d", len((errString)+errString))
-		_, e := conn.Write([]byte(tmp))
-		return e
-	}
-	data,_:=proto.Marshal(&value)
-	_, e := conn.Write(append([]byte(fmt.Sprintf("V%d,%s,",len(data),string(data)))))
-	return e
-}
 
-
+/*
 func (s *Server) get(conn net.Conn, r *bufio.Reader) error {
 	database,table,rowKey,key,startTime,endTime,st,e := s.readGetDataInfo(r,conn)
 	if e != nil {
@@ -301,31 +288,98 @@ func (s *Server) del(conn net.Conn, r *bufio.Reader) error {
 	}
 
 }
+*/
 
-func (s *Server) process(conn net.Conn) {
-	defer conn.Close()
-	r := bufio.NewReader(conn)
-	for {
-		op, e := r.ReadByte()
-		if e != nil {
-			if e != io.EOF {
-				log.Println("close connection due to error:", e)
+
+
+func (s *Server) process(conn net.Conn,storageTyp string) {
+	switch storageTyp {
+	case "kvCache":
+		r := bufio.NewReader(conn)
+		resultCh:=make(chan chan *result.KvResult,5000)
+		defer close(resultCh)
+		go kvReply(conn,resultCh)
+		for {
+			op, e := r.ReadByte()
+			if e != nil {
+				if e != io.EOF {
+					log.Println("close connection due to error:", e)
+				}
+				return
 			}
-			return
+			if op == 'S' {
+				e = s.kvSet(conn, r)
+			} else if op == 'G' {
+				e = s.kvGet(conn, r)
+			} else if op == 'D' {
+				e = s.kvDel(conn, r)
+			} else {
+				log.Println("close connection due to invalid operation:", op)
+				return
+			}
+			if e != nil {
+				log.Println("close connection due to error:", e)
+				return
+			}
 		}
-		if op == 'S' {
-			e = s.set(conn, r)
-		} else if op == 'G' {
-			e = s.get(conn, r)
-		} else if op == 'D' {
-			e = s.del(conn, r)
-		} else {
-			log.Println("close connection due to invalid operation:", op)
-			return
+	case "dbStorage":
+		r := bufio.NewReader(conn)
+		resultCh:=make(chan chan *result.DbResult,5000)
+		defer close(resultCh)
+		go dbReply(conn,resultCh)
+		for {
+			op, e := r.ReadByte()
+			if e != nil {
+				if e != io.EOF {
+					log.Println("close connection due to error:", e)
+				}
+				return
+			}
+			if op == 'S' {
+				e = s.dbSet(conn, r)
+			} else if op == 'G' {
+				e = s.dbGet(conn, r)
+			} else if op == 'D' {
+				e = s.dbDel(conn, r)
+			} else {
+				log.Println("close connection due to invalid operation:", op)
+				return
+			}
+			if e != nil {
+				log.Println("close connection due to error:", e)
+				return
+			}
 		}
-		if e != nil {
-			log.Println("close connection due to error:", e)
-			return
+	case "tsStorage":
+		r := bufio.NewReader(conn)
+		resultCh:=make(chan chan *result.TsResult,5000)
+		defer close(resultCh)
+		go tsReply(conn,resultCh)
+		for {
+			op, e := r.ReadByte()
+			if e != nil {
+				if e != io.EOF {
+					log.Println("close connection due to error:", e)
+				}
+				return
+			}
+			if op == 'S' {
+				e = s.tsSet(resultCh,conn, r)
+			} else if op == 'G' {
+				e = s.tsGet(resultCh,conn,r)
+			} else if op == 'D' {
+				e = s.tsDel(resultCh,conn, r)
+			} else {
+				log.Println("close connection due to invalid operation:", op)
+				return
+			}
+			if e != nil {
+				log.Println("close connection due to error:", e)
+				return
+			}
 		}
+	default:
+		 log.Println("Not Supported Storage Type",storageTyp)
 	}
 }
+

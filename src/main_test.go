@@ -40,12 +40,12 @@ func TestNode2(t2 *testing.T) {
 		cluAddr:  "127.0.0.1:7946",
 	}
 
-	c2 := storage.New("tss",node2.dataDir)
+	c2 := storage.New("tsStorage",node2.dataDir)
 	n2, err := cluster.New(node2.cluAddr,node1.cluAddr)
 	if err != nil {
 		panic(err)
 	}
-	go tcp.New(c2, n2).Listen(node2.tcpAddr)
+	go tcp.New(c2, n2).Listen("tsStorage",node2.tcpAddr)
 	http.New(c2, n2).Listen(node2.httpAddr)
 
 }

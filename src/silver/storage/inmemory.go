@@ -63,8 +63,8 @@ func (c inMemory)  SetTSData(database,table,rowKey,key string,value []byte,dataT
 	return nil
 }
 
-func (c *inMemory) GetTimeRangeData(database,table,rowKey,key string,startTime,endTime int64) (result.TsResult,*bolt.DB,error) {
-	return result.TsResult{},nil,nil
+func (c *inMemory) GetTimeRangeData(wg *sync.WaitGroup,database,table,rowKey,key string,startTime,endTime int64,data []*result.TsField) ([]*result.TsField,error) {
+	return nil,nil
 }
 
 func (c *inMemory) DelTSData(database,table,rowkey,key string,dataTime,endTime int64) (*bolt.DB,error) {
