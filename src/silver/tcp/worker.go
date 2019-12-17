@@ -3,6 +3,7 @@ package tcp
 import (
 	"bufio"
 	"fmt"
+	"github.com/boltdb/bolt"
 	"io"
 	"log"
 	"net"
@@ -354,7 +355,9 @@ func (s *Server) process(conn net.Conn,storageTyp string) {
 		r := bufio.NewReader(conn)
 		resultCh:=make(chan chan *result.TsResult,5000)
 		defer close(resultCh)
-		go tsReply(conn,resultCh)
+		dbCh:=make(chan []*bolt.DB,5000)
+		defer close(dbCh)
+		go tsReply(conn,resultCh,dbCh)
 		for {
 			op, e := r.ReadByte()
 			if e != nil {
@@ -364,11 +367,11 @@ func (s *Server) process(conn net.Conn,storageTyp string) {
 				return
 			}
 			if op == 'S' {
-				e = s.tsSet(resultCh,conn, r)
+			//	e = s.tsSet(resultCh,conn, r)
 			} else if op == 'G' {
-				e = s.tsGet(resultCh,conn,r)
+				e=s.tsGet(resultCh,conn,r,dbCh)
 			} else if op == 'D' {
-				e = s.tsDel(resultCh,conn, r)
+			//	e = s.tsDel(resultCh,conn, r)
 			} else {
 				log.Println("close connection due to invalid operation:", op)
 				return
@@ -382,4 +385,5 @@ func (s *Server) process(conn net.Conn,storageTyp string) {
 		 log.Println("Not Supported Storage Type",storageTyp)
 	}
 }
+
 

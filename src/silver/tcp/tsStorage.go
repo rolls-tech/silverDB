@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"github.com/boltdb/bolt"
 	"github.com/golang/protobuf/proto"
 	"io"
 	"log"
@@ -101,38 +102,50 @@ func parseTsGetData(r *bufio.Reader) (string,string,string,string,string,string,
 	return database,table,rowKey,key,startTime,endTime,nil
 }
 
-func (s *Server) tsGet(ch chan chan *result.TsResult,conn net.Conn, r *bufio.Reader) error {
-	   c:=make(chan *result.TsResult)
-	   ch <- c
-	   database,table,rowKey,key,startTime,endTime,e := s.readTsGetData(r,conn)
-	    if e != nil {
-	    	c <- &result.TsResult{}
-		    return e
-	    }
-	   go func() {
-		   st,_:= strconv.ParseInt(startTime, 10, 64)
-		   et,_:=strconv.ParseInt(endTime, 10, 64)
-		   tr := &result.TsResult{
-			   DataBase:             database,
-			   TableName:            table,
-			   RowKey:               rowKey,
-			   Key:                  key,
-			   Data:                 make([]*result.TsField, 0),
-			   XXX_NoUnkeyedLiteral: struct{}{},
-			   XXX_unrecognized:     nil,
-			   XXX_sizecache:        0,
-		   }
-		   var data []*result.TsField
-		   wg:=&sync.WaitGroup{}
-		   _,e := s.GetTimeRangeData(wg,database,table,rowKey,key,st,et,data)
-		   wg.Wait()
-		   if e !=nil {
-			   c <- &result.TsResult{}
-		   	   log.Println(e)
-		   }
-		   c <- tr
-	   }()
-	   return nil
+func (s *Server) tsGet(ch chan chan *result.TsResult,conn net.Conn, r *bufio.Reader,dbCh chan []*bolt.DB) error {
+	     c:=make(chan *result.TsResult)
+	     ch <-c
+	     database,table,rowKey,key,startTime,endTime,e := s.readTsGetData(r,conn)
+	     if e !=nil {
+	         c<-&result.TsResult{}
+	         log.Println(e)
+	         return e
+	     }
+
+	     tr:=&result.TsResult{
+		DataBase:             database,
+		TableName:            table,
+		RowKey:               rowKey,
+		Key:                  key,
+		Data:                 make([]*result.TsField,0),
+		XXX_NoUnkeyedLiteral: struct{}{},
+		XXX_unrecognized:     nil,
+		XXX_sizecache:        0,
+		}
+	     st,_:= strconv.ParseInt(startTime, 10, 64)
+	     et,_:=strconv.ParseInt(endTime, 10, 64)
+	     tableFileList := s.GetStorageFile(database, table, st, et)
+	     var mu sync.RWMutex
+	     var wg sync.WaitGroup
+	     var data []*result.TsField
+	     var dbList []*bolt.DB
+	     for i,_:=range tableFileList {
+	     	 wg.Add(1)
+	     	 tableFile:=tableFileList[i]
+	     	 go func(dbs *[]*bolt.DB,reData *[]*result.TsField,wg *sync.WaitGroup) {
+				 mu.Lock()
+				 db:=s.OpenDB(tableFile)
+				 *reData=append(*reData,s.GetTimeRangeData(db,rowKey,key,st,et)...)
+				 *dbs=append(*dbs,db)
+				 mu.Unlock()
+				 wg.Done()
+			}(&dbList,&data,&wg)
+		 }
+	     wg.Wait()
+	     tr.Data=data
+	     c <- tr
+	     dbCh <-dbList
+	return nil
 }
 
 func (s *Server) tsSet(ch chan chan *result.TsResult,conn net.Conn, r *bufio.Reader) error {
@@ -175,15 +188,21 @@ func (s *Server) tsDel(ch chan chan *result.TsResult,conn net.Conn, r *bufio.Rea
 	   return nil
 }
 
-func tsReply(conn net.Conn,resultCh chan chan *result.TsResult) {
+func tsReply(conn net.Conn,resultCh chan chan *result.TsResult,dbCh chan []*bolt.DB) {
 	defer conn.Close()
 	for {
 		c,open := <- resultCh
 		if !open {
 			return
 		}
-		r:=<-c
-		e:=sendTsResponse(r,nil,conn)
+		r := <- c
+		if r == nil {
+			return
+		}
+		if !open{
+			return
+		}
+		e:=sendTsResponse(r,nil,conn,dbCh)
 		if e !=nil {
 			log.Println("close connection due to error:", e)
 			return
@@ -191,14 +210,30 @@ func tsReply(conn net.Conn,resultCh chan chan *result.TsResult) {
 	}
 }
 
-func sendTsResponse(value *result.TsResult, err error, conn net.Conn) error {
+func sendTsResponse(value *result.TsResult, err error, conn net.Conn,dbCh chan []*bolt.DB) error {
 	if err != nil {
 		errString := err.Error()
 		tmp := fmt.Sprintf("-%d", len((errString)+errString))
 		_, e := conn.Write([]byte(tmp))
 		return e
 	}
-	data,_:=proto.Marshal(value)
-	_, e := conn.Write(append([]byte(fmt.Sprintf("V%d,%s,",len(data),string(data)))))
+	data,e:=proto.Marshal(value)
+	if e !=nil {
+		log.Println(e.Error())
+		return e
+	}
+	_,e= conn.Write(append([]byte(fmt.Sprintf("V%d,%s,",len(data),string(data)))))
+	dbList:=<-dbCh
+	var wg sync.WaitGroup
+	for n,_:=range dbList {
+		db:=dbList[n]
+		wg.Add(1)
+		go func(wg *sync.WaitGroup) {
+			wg.Done()
+			defer db.Close()
+		}(&wg)
+	}
+	wg.Wait()
 	return e
 }
+

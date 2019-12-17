@@ -95,12 +95,16 @@ func (b *bbolt) SetTSData(dataBase,table,rowKey,k string,v []byte,dataTime int64
 	return nil
 }
 
-func (b *bbolt) GetTimeRangeData(wg *sync.WaitGroup,dataBase,table,rowKey,k string,startTime,endTime int64,data []*result.TsField) ([]*result.TsField, error) {
-	return nil,nil
+func (b *bbolt) GetTimeRangeData(table,rowKey,k string,startTime,endTime int64) ([]*result.TsField, *bolt.DB,error) {
+	return nil,nil,nil
 }
 
 func (b *bbolt) DelTSData(dataBase,table,rowKey,k string,startTime,endTime int64) (*bolt.DB, error) {
 	return nil,nil
+}
+
+func (b *bbolt) GetStorageFile(string,string,int64,int64) []string {
+	return nil
 }
 
 type bucket struct {

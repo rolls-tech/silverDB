@@ -14,4 +14,3 @@ message tsField {
     bytes timestamp=1;
     bytes value=2;
 }
-
