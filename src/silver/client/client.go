@@ -1,44 +1,49 @@
 package client
 
-import (
-	"bufio"
-	"fmt"
-	"github.com/golang/protobuf/proto"
-	"io"
-	"log"
-	"net"
-	"silver/result"
-	"strconv"
-	"strings"
-)
-
-type ConfigClient struct {
+/*
+type TsClient struct {
 	Server      string
 	StorageType string
-	Cmds        []*Cmd
 	OperateType string
 }
 
+/*
+
 type Cmd struct {
 	Name     string
-	DataBase string
-	Table   string
-	RowKey  string
-	DataTime string
-	StartTime string
-	EndTime string
-	Key      string
-	Value    string
+	storage.TsCacheData
+	storage.TsBufferData
+	StartTime int64
+	EndTime int64
 	Error    error
 }
+
+func NewCmd (name string,tsGetData storage.TsCacheData,tsSetData storage.TsBufferData,startTime,endTime int64,err error) *Cmd {
+	cmd:=&Cmd{
+		Name:         name,
+		TsCacheData:  storage.TsCacheData{},
+		TsBufferData: storage.TsBufferData{},
+		StartTime:    startTime,
+		EndTime:     endTime,
+	}
+	switch name {
+	case "get":
+       cmd.TsCacheData=tsGetData
+	case "set":
+	   cmd.TsBufferData=tsSetData
+	}
+	return cmd
+}
+
+
 
 type Client struct {
 	net.Conn
 	r *bufio.Reader
 }
 
-func (conf *ConfigClient) newClient() *Client {
-	c, e := net.Dial("tcp", conf.Server)
+func (client *TsClient) newClient() *Client {
+	c, e := net.Dial("tcp", client.Server)
 	if e != nil {
 		panic(e)
 	}
@@ -46,173 +51,90 @@ func (conf *ConfigClient) newClient() *Client {
 	return &Client{c, r}
 }
 
-func NewClient(server string, storageType string, cmds []*Cmd, operateType string) *ConfigClient {
-	c := ConfigClient{
+
+
+
+func NewTsClient(server string, storageType string, cmd *Cmd, operateType string) *TsClient {
+	c := TsClient {
 		Server:      server,
 		StorageType: storageType,
-		Cmds:        cmds,
+		Cmd:        cmd,
 		OperateType: operateType,
 	}
 	return &c
 }
 
-func (conf *ConfigClient) Operate() {
-	c := conf.newClient()
-	conf.PipelineRun(c)
+func (client *TsClient) StartRun() {
+	c := client.newClient()
+	client.PipelineRun(c)
 }
 
-func (conf *ConfigClient) PipelineRun(c *Client) {
-	if len(conf.Cmds) == 0 {
+func (client *TsClient) PipelineRun(c *Client) {
+	if client.StorageType == "" || client.OperateType=="" {
+		log.Println("Storage Type and OperateType and Data should be not nil")
 		return
 	}
-	for _, cmd := range conf.Cmds {
-		if conf.OperateType == "get" {
-			c.sendGet(cmd.DataBase, cmd.Table,cmd.RowKey,cmd.Key,conf.StorageType,cmd.StartTime,cmd.EndTime)
-		}
-		if conf.OperateType == "set" {
-			c.sendSet(cmd.DataBase, cmd.Table, cmd.RowKey,cmd.Key,cmd.Value,conf.StorageType,cmd.DataTime)
-		}
-		if conf.OperateType == "del" {
-			c.sendDel(cmd.DataBase, cmd.Table,cmd.RowKey, cmd.Key, conf.StorageType,cmd.DataTime,cmd.EndTime)
-		}
+	if client.OperateType == "get" {
+		c.sendGet(&client.TsCacheData, client.StartTime, client.EndTime)
 	}
-	for _, cmd := range conf.Cmds {
-		cmd.Value, cmd.Error = c.processResponse(cmd)
-		fmt.Println(cmd.Value)
+	if client.OperateType == "set" {
+		c.sendSet(&client.TsBufferData)
 	}
+	if client.OperateType == "del" {
+		c.sendDel(&client.TsCacheData, client.StartTime, client.EndTime)
+	}
+	getData,e:=c.processGetResponse(client)
+	log.Println(getData,e)
+	setData,e:=c.processSetResponse(client)
+	log.Println(setData,e)
+
 }
 
-func (conf *ConfigClient) Run(c *Client,cmd Cmd) {
-	if conf.OperateType == "get" {
-		c.sendGet(cmd.DataBase, cmd.Table,cmd.RowKey,cmd.Key,conf.StorageType,cmd.StartTime,cmd.EndTime)
-		cmd.Value, cmd.Error = c.processResponse(&cmd)
-		fmt.Println(cmd.Value)
+
+func (c *Client) sendGet(tsData *storage.TsCacheData,startTime,endTime int64) {
+	data,e:=proto.Marshal(tsData)
+	if e !=nil {
+		log.Println(e.Error())
 		return
 	}
-	if conf.OperateType == "set" {
-		c.sendSet(cmd.DataBase, cmd.Table, cmd.RowKey,cmd.Key,cmd.Value,conf.StorageType,cmd.DataTime)
-		cmd.Value, cmd.Error = c.processResponse(&cmd)
-		fmt.Println(cmd.Value)
+	st := strconv.FormatInt(startTime, 10)
+	et := strconv.FormatInt(endTime, 10)
+	dLen:=len(data)
+	sLen:=len(st)
+	eLen:=len(et)
+	_, err := c.Write([]byte(fmt.Sprintf("G%d,%d,%d,%s%s%s",dLen,sLen,eLen,data,st,et)))
+	if err != nil {
+		log.Println(err.Error())
+	}
+}
+
+func (c *Client) sendSet(tsData *storage.TsBufferData) {
+	data,e:=proto.Marshal(tsData)
+	if e !=nil {
+		log.Println(e.Error())
 		return
 	}
-	if conf.OperateType == "del" {
-		c.sendDel(cmd.DataBase, cmd.Table,cmd.RowKey, cmd.Key, conf.StorageType,cmd.DataTime,cmd.EndTime)
-		cmd.Value, cmd.Error = c.processResponse(&cmd)
-		fmt.Println(cmd.Value)
+	dLen:=len(data)
+	_, err := c.Write([]byte(fmt.Sprintf("S%d,%s",dLen,data)))
+	if err != nil {
+		log.Println(err.Error())
+	}
+}
+
+func (c *Client) sendDel(tsData *storage.TsCacheData,startTime,endTime int64) {
+	data,e:=proto.Marshal(tsData)
+	if e !=nil {
+		log.Println(e.Error())
 		return
 	}
-	panic("unknown cmd name " + cmd.Name)
-}
-
-func (c *Client) sendGet(dataBase,table,rowKey,key,storageType,startTime,endTime string) {
-	var klen int
-	var dblen int
-	var tblen int
-	klen = len(key)
-	dblen= len(dataBase)
-	tblen= len(table)
-	switch storageType {
-	case "cache":
-		_, err := c.Write([]byte(fmt.Sprintf("G%d,%s",klen,key)))
-		if err != nil {
-			log.Println(err.Error())
-		}
-	case "bolt":
-		if dblen == 0 || tblen == 0 {
-			log.Println("DataBase and Table is required not null!")
-		}
-		_, err := c.Write([]byte(fmt.Sprintf("G%d,%d,%d,%s%s%s",dblen,tblen,klen,dataBase,table,key)))
-		if err != nil {
-			log.Println(err.Error())
-		}
-	case "tsStorage":
-		rklen:=len(rowKey)
-		stlen:=len(startTime)
-		etlen:=len(endTime)
-		if dblen == 0 || tblen == 0 || rklen == 0 || stlen == 0 || etlen == 0 {
-			log.Println("DataBase and Table and rowKey and startTime and endTime is required not null!")
-		}
-		_, err := c.Write([]byte(fmt.Sprintf("G%d,%d,%d,%d,%d,%d,%s%s%s%s%s%s",dblen,tblen,rklen,klen,stlen,etlen,dataBase,table,rowKey,key,startTime,endTime)))
-		if err != nil {
-			log.Println(err.Error())
-		}
-	default:
-		log.Println("not supported storage type")
-	}
-}
-
-func (c *Client) sendSet(database,table,rowKey,key,value,storageType,dataTime string){
-	var klen int
-	var vlen int
-	var dblen int
-	var tblen int
-	klen = len(key)
-	vlen = len(value)
-	dblen= len(database)
-	tblen= len(table)
-	switch storageType {
-	case "cache":
-		_, err := c.Write([]byte(fmt.Sprintf("S%d,%d,%s%s",klen, vlen, key, value)))
-		if err != nil {
-			log.Println(err)
-		}
-	case "bolt":
-		if dblen == 0 || tblen == 0 {
-			log.Println("DataBase and Table is required not null!")
-		}
-		_, err := c.Write([]byte(fmt.Sprintf("S%d,%d,%d,%d,%s%s%s%s", dblen,tblen,klen,vlen,database,table,key,value)))
-		if err != nil {
-			log.Println(err)
-		}
-	case "tsStorage":
-		rklen:=len(rowKey)
-		dtlen:=len(dataTime)
-		if dblen == 0 || tblen == 0 || rklen == 0 {
-			log.Println("DataBase and Table and rowKey is required not null!")
-		}
-		_, err := c.Write([]byte(fmt.Sprintf("S%d,%d,%d,%d,%d,%d,%s%s%s%s%s%s", dblen,tblen,rklen,klen,vlen,dtlen,database,table,rowKey,key,value,dataTime)))
-		if err != nil {
-			log.Println(err)
-		}
-	default:
-		log.Println("not supported storage type",storageType)
-	}
-}
-
-func (c *Client) sendDel(database,table,rowKey,key,storageType,dataTime,endTime string) {
-	var klen int
-	var dblen int
-	var tblen int
-	klen = len(key)
-	dblen= len(database)
-	tblen= len(table)
-	switch storageType {
-	case "cache":
-		_, err := c.Write([]byte(fmt.Sprintf("Dc%d,%s",klen,key)))
-		if err != nil {
-			log.Println(err.Error())
-		}
-	case "bolt":
-		if dblen == 0 || tblen == 0 {
-			log.Println("DataBase and Table is required not null!")
-		}
-		_, err := c.Write([]byte(fmt.Sprintf("Db%d,%d,%d,%s%s%s",dblen, tblen, klen,database,table,key)))
-		if err != nil {
-			log.Println(err.Error())
-		}
-	case "tsStorage":
-		rklen:=len(rowKey)
-		dtlen:=len(dataTime)
-		etlen:=len(endTime)
-		if dblen == 0 || tblen == 0 || rklen ==0 || dtlen == 0 {
-			log.Println("DataBase and Table and rowKey and dataTime is required not null!")
-		}
-		_, err := c.Write([]byte(fmt.Sprintf("Dt%d,%d,%d,%d,%d,%d,%s%s%s%s%s%s",dblen,tblen,rklen,klen,dtlen,etlen,database,table,rowKey,key,dataTime,endTime)))
-		if err != nil {
-			log.Println(err.Error())
-		}
-	default:
-		log.Println("not supported storage type")
+	st := strconv.FormatInt(startTime, 10)
+	et := strconv.FormatInt(endTime, 10)
+	dLen:=len(data)
+	sLen:=len(st)
+	eLen:=len(et)
+	_, err := c.Write([]byte(fmt.Sprintf("D%d,%d,%d,%s%s%s",dLen,sLen,eLen,data,st,et)))
+	if err != nil {
+		log.Println(err.Error())
 	}
 }
 
@@ -227,45 +149,84 @@ func readLen(r *bufio.Reader) string {
 	return strings.ReplaceAll(tmp, ",", "")
 }
 
-func (c *Client) processResponse(cmd *Cmd) (string,error) {
-	var value string
+func (c *Client) processGetResponse(client *TsClient) (storage.TsCacheData,error) {
+	var field *storage.TsCache
+	var data storage.TsCacheData
 	op, e := c.r.ReadByte()
 	if e != nil {
 		if e != io.EOF {
 			log.Println("close connection due to error:", e)
 		}
-		return "",nil
+		return data,nil
 	}
 	switch op {
 	case 'R':
-		v,_:=c.recvResponse()
+		v,n,_:=c.recvResponse()
 		redirect:=strings.Split(string(v),":")
 		addr:=redirect[0]
-		var cmds []*Cmd
-		cmds = append(cmds, cmd)
-		c := NewClient(addr+":12348", "tsStorage", cmds, cmd.Name)
+		field=client.TsGetData[int(binary.BigEndian.Uint64(n))]
+		data.TsGetData=append(data.TsGetData,field)
+		cmd:=NewCmd(client.Name,data,client.TsBufferData,client.StartTime,client.EndTime,client.Error)
+		c := NewTsClient(addr+":12348", "tsStorage",cmd,cmd.Name)
 		client:=c.newClient()
-		c.Run(client,*cmds[0])
+		c.PipelineRun(client)
 	case 'V':
-		v,e:= c.recvResponse()
-		data:=&result.TsResult{}
-		_=proto.Unmarshal(v,data)
-		log.Println(data)
-		return value,e
+		v,_,e:= c.recvResponse()
+		_=proto.Unmarshal(v,&data)
+		return data,e
 	}
-	return value,e
+	return data,e
 }
 
-func (c *Client) recvResponse() ([]byte, error) {
-	l1 := readLen(c.r)
-	vlen, e := strconv.Atoi(l1)
-	if vlen == 0 {
-		return nil, nil
+func (c *Client) processSetResponse(client *TsClient) (storage.TsBufferData,error) {
+	var field *storage.TsBuffer
+	var data storage.TsBufferData
+	op, e := c.r.ReadByte()
+	if e != nil {
+		if e != io.EOF {
+			log.Println("close connection due to error:", e)
+		}
+		return data,nil
 	}
-	value := make([]byte, vlen)
+	switch op {
+	case 'R':
+		v,n,_:=c.recvResponse()
+		redirect:=strings.Split(string(v),":")
+		addr:=redirect[0]
+		field=client.TsBufferData.TsSetData[int(binary.BigEndian.Uint64(n))]
+		data.TsSetData=append(data.TsSetData,field)
+		cmd:=NewCmd(client.Name,client.TsCacheData,data,client.StartTime,client.EndTime,client.Error)
+		c := NewTsClient(addr+":12348", "tsStorage",cmd,cmd.Name)
+		client:=c.newClient()
+		c.PipelineRun(client)
+	case 'V':
+		v,_,e:= c.recvResponse()
+		_=proto.Unmarshal(v,&data)
+		return data,e
+	}
+	return data,e
+}
+
+func (c *Client) recvResponse() ([]byte,[]byte, error) {
+	l1 := readLen(c.r)
+	l2 := readLen(c.r)
+	vLen, e := strconv.Atoi(l1)
+	nLen,e := strconv.Atoi(l2)
+	if vLen == 0 {
+		return nil,nil,nil
+	}
+	value := make([]byte, vLen)
 	_, e = io.ReadFull(c.r, value)
 	if e != nil {
-		return nil, e
+		return nil,nil, e
 	}
-	return value, nil
+	n := make([]byte, nLen)
+	_, e = io.ReadFull(c.r, n)
+	if e != nil {
+		return nil,nil,e
+	}
+	return value,n,nil
 }
+
+
+ */

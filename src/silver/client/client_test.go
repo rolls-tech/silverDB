@@ -24,23 +24,24 @@ func TestClient_Operate(t *testing.T) {
 	fmt.Println(time.Hour.Nanoseconds())
 	t6,_:=time.ParseDuration("24h")
 	t7:=time.Now().Add(t6).Format(RFC3339Nano)
-	log.Println(t7) */
+	log.Println(t7)
 
 
-	var cmds []*Cmd
-	cmd := Cmd {
-		Name:     "get",
-		DataBase: "test1",
-		Table:   "test1",
-		RowKey:  "zzz",
-		DataTime: "",
-		StartTime: "1576072645676694700",
-		EndTime: "1576159045676694700",
-		Key:      "bbb",
-		Value:    "",
-		Error:    nil,
+
+
+	getData:=&storage.TsCacheData{
+		TsGetData:            nil,
 	}
-	cmds = append(cmds, &cmd)
-	c := NewClient("127.0.0.1:12346", "tsStorage", cmds, cmd.Name)
-	c.Operate()
+
+	setData:=&storage.TsBufferData{
+		TsSetData:            nil,
+	}
+
+
+	cmd:=NewCmd("set",*getData,*setData,0,0,nil)
+
+	c := NewTsClient("127.0.0.1:12346", "tsStorage", cmd, cmd.Name)
+	c.StartRun()
+	*/
+
 }

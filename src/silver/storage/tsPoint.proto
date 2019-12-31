@@ -1,0 +1,18 @@
+syntax="proto3";
+
+package storage;
+
+message wPoint {
+    string dataBase=1;
+    string tableName=2;
+    map<string,string> tags=3;
+    map<string,value> value=4;
+}
+
+message value {
+    map<int64,bytes> kv=1;
+}
+
+message rPoint {
+    map<string,value> rp=1;
+}

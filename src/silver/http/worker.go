@@ -13,11 +13,9 @@ type Server struct {
 }
 
 func (s *Server) Listen(addr string){
-	http.Handle("/cache",s.cacheHandler())
-	http.Handle("/status",s.statusHandler())
 	http.Handle("/cluster",s.clusterHandler())
 	err:=http.ListenAndServe(addr,nil)
-	if err!=nil{
+	if err!=nil {
 	  log.Println(err.Error())
 	}
 }

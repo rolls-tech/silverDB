@@ -6,7 +6,7 @@ import (
 	"silver/cluster"
 	"silver/http"
 	"silver/storage"
-	"silver/tcp"
+	"silver/worker"
 )
 
 var typ, node, clus string
@@ -94,12 +94,14 @@ func main() {
 
 	allNodes,_:=initNodes()
 	node1:=allNodes.nodes[0]
+
+	ts:=storage.NewTss(node1.dataDir)
 	//node1
-	c1 := storage.New(typ,node1.dataDir)
+	c1 := storage.New(typ,ts)
 	n1, err := cluster.New(node1.cluAddr,node1.cluAddr)
 	if err != nil {
 		panic(err)
 	}
-	go tcp.New(c1, n1).Listen(typ,node1.tcpAddr)
+	go worker.New(c1, n1).Listen(typ,node1.tcpAddr)
 	http.New(c1, n1).Listen(node1.httpAddr)
 }

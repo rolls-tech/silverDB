@@ -1,0 +1,13 @@
+syntax="proto3";
+
+package cmd;
+
+message getCmd {
+    string dataBase=1;
+    string tableName=2;
+    map<string,string> tags=3;
+    string fieldKey=4;
+    int64 startTime=5;
+    int64 endTime=6;
+
+}

@@ -1,136 +1,104 @@
 package storage
 
-import (
-	"bytes"
-	"encoding/binary"
-	"github.com/boltdb/bolt"
-	"io/ioutil"
-	"log"
-	"math/rand"
-	"os"
-	"silver/result"
-	"strconv"
-	"strings"
-	"sync"
-	"time"
-)
+/*
+type TsStorage struct {
+	Cache
+	Buffer
+	Tss
+}
 
-const RFC3339Nano = "2006-01-02T15:04:05.999999999Z07:00"
-const sep=string(os.PathSeparator)
+func NewTsStorage(ttl int,dataPath []string) *TsStorage{
+	return &TsStorage{
+		Cache:  *NewtsCache(ttl,dataPath),
+		Buffer: *NewtsBuffer(ttl,dataPath),
+	}
+}
 
-type tss struct {
+type Tss struct {
 	mutex     sync.RWMutex
 	dataDir   []string
-	dataInfo  []*dataBase
-	Stat
 }
 
-func (t *tss) SetKv(key string, value []byte) error {
-	return nil
-}
-
-func (t *tss) GetKv(key string) ([]byte, error) {
-	return nil,nil
-}
-
-func (t *tss) DelKv(key string) error {
-	return nil
-}
-
-func (t *tss) SetDBandKV(dataBase,table,key string,value []byte) error {
-	return nil
-}
-
-func (t *tss) GetDBandKV(dataBase,table,key string) ([]byte, *bolt.DB, error) {
-	return nil,nil,nil
-}
-
-func (t *tss) DelDBandKV(dataBase,table,key string) (*bolt.DB, error) {
-	return nil,nil
-}
-
-func (t *tss) SetTSData(dataBase, tableName, rowKey ,key string, value []byte,dataTime int64) error {
-	tableFile,startTime:=t.setTableFile(dataBase,tableName,dataTime)
-	db := t.OpenDB(tableFile)
-	defer db.Close()
-	if err := db.Update(func(tx *bolt.Tx) error {
-		table, err := tx.CreateBucketIfNotExists([]byte(rowKey+key))
-		if err != nil {
-			return err
+func (t *Tss) SetTsData(p *TsBuffer) error {
+	var rowKey string
+	dataBase:=p.Key.RowKey.DataBase
+	tableName:=p.Key.RowKey.TableName
+	tagKv:=p.Key.RowKey.TagKV.TagKv
+	if tagKv !=nil {
+		for tagK,tagV:=range tagKv {
+			rowKey+=tagK+tagV
 		}
-		err = table.Put([]byte(startTime), value)
-		if err != nil {
-			return err
-		}
-		t.Addstat(key, value)
-		return nil
-	}); err != nil {
-		return err
+	}
+	fieldKey:=p.Key.ValueKey
+	Kv:=p.Value.Kv
+	tableFileKv:=t.setTableFile(dataBase,tableName,Kv)
+	for tableFile,Kv:=range tableFileKv {
+		go func() {
+			db := t.OpenDB(tableFile)
+			defer db.Close()
+			if err := db.Batch(func(tx *bolt.Tx) error {
+				rootTable, err := tx.CreateBucketIfNotExists([]byte(rowKey))
+				if err != nil {
+					return err
+				}
+				table, err := rootTable.CreateBucketIfNotExists([]byte(fieldKey))
+				if err != nil {
+					return err
+				}
+				if Kv != nil {
+					for k,v:=range Kv {
+						err = table.Put(intToByte(k),v)
+						if err != nil {
+							return err
+						}
+					}
+				}
+				return nil
+			}); err != nil {
+				log.Println(err)
+			}
+		}()
 	}
 	return nil
 }
 
-func (t *tss) GetTimeRangeData(db *bolt.DB, rowKey, key string,startTime,endTime int64) []*result.TsField {
+func (t *Tss) GetTimeRangeData(db *bolt.DB,tsField  *TsCache,rowKey, key string,startTime,endTime int64) *TsCache {
 	st := strconv.FormatInt(startTime, 10)
 	et := strconv.FormatInt(endTime, 10)
-	data:=make([]*result.TsField,0)
+	value:=make([]*TsValue,0)
 	if err:= db.View(func(tx *bolt.Tx) error {
-					b := tx.Bucket([]byte(rowKey + key))
+					rootTable := tx.Bucket([]byte(rowKey))
+					b:=rootTable.Bucket([]byte(key))
 					c := b.Cursor()
 					for k, v := c.First(); k != nil; k, v = c.Next() {
 						if strings.Compare(string(k), st) >= 0 && strings.Compare(string(k), et) <= 0 {
-							tsf := &result.TsField{
-								Timestamp:            k,
-								Value:                v,
-								XXX_NoUnkeyedLiteral: struct{}{},
-								XXX_unrecognized:     nil,
-								XXX_sizecache:        0,
+							tsValue := &TsValue{
+								T:int64(binary.BigEndian.Uint64(k)),
+								V:v,
 							}
-							data = append(data, tsf)
+							value = append(value, tsValue)
 						}
 					}
 					return nil
 				}); err != nil {
 					log.Println(err)
 				}
-	         return data
+	    tsField.Value=value
+		return tsField
 }
 
-func (t *tss) DelTSData(dataBase, tableName, rowKey, key string,startTime,endTime int64) (*bolt.DB, error) {
+func (t *Tss) DelTSData(dataBase, tableName, rowKey, key string,startTime,endTime int64) (*bolt.DB, error) {
 	return nil,nil
 }
 
-type dataBase struct {
-	dataBaseName string
-	dataBaseId string
-	tableList []*table
-}
-
-type table struct {
-	tableName string
-	tableId string
-	maxKey string
-	minKey string
-	maxTime int64
-	minTime int64
-	duration time.Duration
-	tableFile string
-}
-
-func (t *tss) GetStat() Stat {
-	return t.Stat
-}
-
-func NewTss(dataDir []string) *tss {
-	return &tss{
+func NewTss(dataDir []string) *Tss {
+	return &Tss{
 		mutex:         sync.RWMutex{},
 		dataDir:       dataDir,
-		dataInfo:      make([]*dataBase,0),
-		Stat:          Stat{},
 	}
 }
 
-func (t *tss) OpenDB(dataFile string) *bolt.DB {
+func (t *Tss) OpenDB(dataFile string) *bolt.DB {
 	db, err := bolt.Open(dataFile, 777, nil)
 	if err != nil {
 		log.Println(err.Error())
@@ -138,24 +106,23 @@ func (t *tss) OpenDB(dataFile string) *bolt.DB {
 	return db
 }
 
-func (t *tss) setTableFile(dataBase,tableName string,dataTime int64) (string,string) {
+func (t *Tss) setTableFile(dataBase,tableName string,Kv map[int64][]byte) map[string]map[int64][]byte {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
-	nowTime:=time.Now()
 	var tableFile string
-	var startTime string
-	var endTime string
-	if dataTime == 0 {
-		startTime,endTime=getSandETime(nowTime,24*time.Hour)
-		tableFile=t.scanDataDir(dataBase,tableName,startTime,endTime)
-		return tableFile,startTime
+	var endTime int64
+	tableFileKv:=make(map[string]map[int64][]byte,0)
+	if Kv != nil {
+		for k,v:=range Kv {
+			endTime=getEndTime(k,24*time.Hour)
+			tableFile=t.scanDataDir(dataBase,tableName,k,endTime)
+			tableFileKv[tableFile][k]=v
+		}
 	}
-	startTime,endTime=getSandETime(time.Unix(0,dataTime),24*time.Hour)
-	tableFile=t.scanDataDir(dataBase,tableName,startTime,endTime)
-	return tableFile,startTime
+	return tableFileKv
 }
 
-func (t *tss) GetStorageFile(dataBase,tableName string,startTime,endTime int64) []string {
+func (t *Tss) GetStorageFile(dataBase,tableName string,startTime,endTime int64) []string {
 	sTime := strconv.FormatInt(startTime, 10)
 	eTime := strconv.FormatInt(endTime, 10)
 	t.mutex.RLock()
@@ -195,8 +162,10 @@ func (t *tss) GetStorageFile(dataBase,tableName string,startTime,endTime int64) 
 	return tableFileList
 }
 
-func (t *tss) scanDataDir(dataBase,tableName,startTime,endTime string) string {
+func (t *Tss) scanDataDir(dataBase,tableName string,st,et int64) string {
 	var tableFile string
+	startTime := strconv.FormatInt(st,10)
+	endTime := strconv.FormatInt(et,10)
 	dataBaseDir,exist:=t.dataBaseDirIsExist(dataBase)
 	if exist == true {
 		fileList,err:=ioutil.ReadDir(dataBaseDir)
@@ -230,8 +199,7 @@ func (t *tss) scanDataDir(dataBase,tableName,startTime,endTime string) string {
 		return tableFile
 }
 
-
-func (t *tss) dataBaseDirIsExist(dataBase string) (string,bool) {
+func (t *Tss) dataBaseDirIsExist(dataBase string) (string,bool) {
 	for _,dir:= range t.dataDir {
 		if t.fileIsExist(dir+dataBase) {
 			return dir+dataBase,true
@@ -240,7 +208,7 @@ func (t *tss) dataBaseDirIsExist(dataBase string) (string,bool) {
 	return "",false
 }
 
-func (t *tss) fileIsExist(file string) bool {
+func (t *Tss) fileIsExist(file string) bool {
 	_, err := os.Stat(file)
 	if err != nil {
 		if os.IsExist(err) {
@@ -278,11 +246,9 @@ func transTime (originTime int64) string {
 	}
 }
 
-func getSandETime (nowTime time.Time,durationTime time.Duration) (string,string) {
-	startTime:=nowTime.UnixNano()
-	endTime:=startTime+durationTime.Nanoseconds()
-	sstartTime := strconv.FormatInt(startTime,10)
-	eendTime:=strconv.FormatInt(endTime,10)
-	return sstartTime,eendTime
+func getEndTime (dataTime int64,durationTime time.Duration) int64 {
+	endTime:=dataTime+durationTime.Nanoseconds()
+	return endTime
 }
 
+*/

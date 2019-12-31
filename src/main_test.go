@@ -4,7 +4,7 @@ import (
 	"silver/cluster"
 	"silver/http"
 	"silver/storage"
-	"silver/tcp"
+	"silver/worker"
 	"testing"
 )
 
@@ -39,13 +39,13 @@ func TestNode2(t2 *testing.T) {
 		tcpAddr:  "127.0.0.1:12348",
 		cluAddr:  "127.0.0.1:7946",
 	}
-
-	c2 := storage.New("tsStorage",node2.dataDir)
+	ts:=storage.NewTss(node2.dataDir)
+	c2 := storage.New("tsStorage",ts)
 	n2, err := cluster.New(node2.cluAddr,node1.cluAddr)
 	if err != nil {
 		panic(err)
 	}
-	go tcp.New(c2, n2).Listen("tsStorage",node2.tcpAddr)
+	go worker.New(c2, n2).Listen("tsStorage",node2.tcpAddr)
 	http.New(c2, n2).Listen(node2.httpAddr)
 
 }

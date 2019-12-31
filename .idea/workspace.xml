@@ -2,17 +2,50 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="9a6cd78f-107b-4f59-aacc-c8e638a4c852" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/src/silver/test/test.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/silver/client/tsClient.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/silver/client/tsClient_test.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/silver/cmd/cmd.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/silver/cmd/getCmd.pb.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/silver/cmd/getCmd.proto" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/silver/storage/tsBuffer.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/silver/storage/tsCache.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/silver/storage/tsIndex.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/silver/storage/tsKv.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/silver/storage/tsPoint.pb.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/silver/storage/tsPoint.proto" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/silver/wal/wal.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/silver/worker/tsKvHandler.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/silver/worker/tsStorage.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/silver/worker/worker.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testdata4/db1/table1-1577760224923936800-1577846624923936800.db" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/golang.org/x/tools" beforeDir="false" afterPath="$PROJECT_DIR$/src/golang.org/x/tools" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/golang.org/x/tools/go/ssa/interp/testdata/src/time/time.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/golang.org/x/tools/go/ssa/interp/testdata/src/time/time.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/silver/result/tsResult.proto" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/result/tsResult.proto" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/silver/storage/bbolt.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/storage/bbolt.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/silver/storage/inmemory.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/storage/inmemory.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/main_test.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/client/client.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/client/client.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/client/client_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/client/client_test.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/cluster/node.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/cluster/node.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/http/cacheHandler.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/http/statusHandler.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/http/worker.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/http/worker.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/result/dbResult.pb.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/result/dbResult.proto" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/result/kvResult.pb.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/result/kvResult.proto" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/result/tsResult.pb.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/result/tsResult.proto" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/storage/bbolt.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/storage/inmemory.go" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/src/silver/storage/storage.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/storage/storage.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/silver/storage/tss.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/storage/tss.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/silver/tcp/tsStorage.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/tcp/tsStorage.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/silver/tcp/worker.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/silver/tcp/worker.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/tcp/kvCache.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/tcp/kvStorage.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/tcp/tsStorage.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/silver/tcp/worker.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/testdata2/test/test1-1575986006681411100-1576072406681411100.db" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/testdata4/test1/test1-1576072645676694700-1576159045676694700.db" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/testdata4/test1/test1-1576072645676694700-1576159045686694700.db" beforeDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -37,8 +70,8 @@
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
       <list>
-        <option value="Go File" />
         <option value="Go Application" />
+        <option value="Go File" />
       </list>
     </option>
   </component>
@@ -47,6 +80,7 @@
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="GoLibraries">
+    <option name="indexEntireGoPath" value="false" />
     <option name="urls">
       <list>
         <option value="file://$PROJECT_DIR$" />
@@ -60,7 +94,7 @@
   </component>
   <component name="PropertiesComponent">
     <property name="ASKED_ADD_EXTERNAL_FILES" value="true" />
-    <property name="DefaultGoTemplateProperty" value="Go Application" />
+    <property name="DefaultGoTemplateProperty" value="Go File" />
     <property name="GO_FMT" value="true" />
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
@@ -72,22 +106,22 @@
     <property name="go.tried.to.enable.integration.dep.integrator" value="true" />
     <property name="go.tried.to.enable.integration.vgo.integrator" value="true" />
     <property name="go.vendoring.notification.had.been.shown" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/src" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
     <property name="run.code.analysis.last.selected.profile" value="pProject Default" />
-    <property name="settings.editor.selected.configurable" value="project.propVCSSupport.Mappings" />
+    <property name="settings.editor.selected.configurable" value="com.goide.configuration.GoLibrariesConfigurableProvider" />
   </component>
   <component name="RecentsManager">
-    <key name="MoveFile.RECENT_KEYS">
-      <recent name="D:\dev\silver\testdata4\test1" />
-      <recent name="D:\dev\silver\src\silver\result" />
-      <recent name="D:\dev\silver\src\silver\benchmark" />
-      <recent name="D:\dev\silver\src\config" />
-      <recent name="D:\dev\silver\src\conf" />
-    </key>
     <key name="CopyFile.RECENT_KEYS">
       <recent name="D:\dev\silver\src" />
       <recent name="D:\dev\silver\src\stathat.com" />
       <recent name="D:\dev\silver\src\http" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="D:\dev\silver\src\silver\storage" />
+      <recent name="D:\dev\silver\src\silver\worker" />
+      <recent name="D:\dev\silver\testdata4\test1" />
+      <recent name="D:\dev\silver\src\silver\result" />
+      <recent name="D:\dev\silver\src\silver\benchmark" />
     </key>
   </component>
   <component name="RunDashboard">
@@ -102,7 +136,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Go Test.TestNode2 in main_test.go">
+  <component name="RunManager" selected="Go Test.Test_tsClient_ExecuteCmd in silver/client">
     <configuration name="go build main.go" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true" nameIsGenerated="true">
       <module name="silver" />
       <working_directory value="$PROJECT_DIR$" />
@@ -111,35 +145,14 @@
       <directory value="$PROJECT_DIR$" />
       <method v="2" />
     </configuration>
-    <configuration name="go build silver/test" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true" nameIsGenerated="true">
+    <configuration name="TestNode2 in main_test.go (1)" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
       <module name="silver" />
-      <working_directory value="$PROJECT_DIR$" />
-      <kind value="PACKAGE" />
-      <filePath value="$PROJECT_DIR$/src/silver/test/test.go" />
-      <package value="silver/test" />
-      <directory value="$PROJECT_DIR$" />
-      <method v="2" />
-    </configuration>
-    <configuration name="TestClient_Operate in silver/client (1)" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
-      <module name="silver" />
-      <working_directory value="$PROJECT_DIR$/src/silver/client" />
+      <working_directory value="$PROJECT_DIR$/src" />
       <framework value="gotest" />
-      <kind value="PACKAGE" />
-      <package value="silver/client" />
+      <kind value="FILE" />
       <directory value="$PROJECT_DIR$" />
-      <filePath value="$PROJECT_DIR$" />
-      <pattern value="^TestClient_Operate$" />
-      <method v="2" />
-    </configuration>
-    <configuration name="TestClient_Operate in silver/client" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
-      <module name="silver" />
-      <working_directory value="$PROJECT_DIR$/src/silver/client" />
-      <framework value="gotest" />
-      <kind value="PACKAGE" />
-      <package value="silver/client" />
-      <directory value="$PROJECT_DIR$" />
-      <filePath value="$PROJECT_DIR$" />
-      <pattern value="^TestClient_Operate$" />
+      <filePath value="$PROJECT_DIR$/src/main_test.go" />
+      <pattern value="^TestNode2$" />
       <method v="2" />
     </configuration>
     <configuration name="TestNode2 in main_test.go" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
@@ -152,20 +165,42 @@
       <pattern value="^TestNode2$" />
       <method v="2" />
     </configuration>
+    <configuration name="Test_tsClient_ExecuteCmd in silver/client (1)" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="silver" />
+      <working_directory value="$PROJECT_DIR$/src/silver/client" />
+      <framework value="gotest" />
+      <kind value="PACKAGE" />
+      <package value="silver/client" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$" />
+      <pattern value="^Test_tsClient_ExecuteCmd$" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Test_tsClient_ExecuteCmd in silver/client" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="silver" />
+      <working_directory value="$PROJECT_DIR$/src/silver/client" />
+      <framework value="gotest" />
+      <kind value="PACKAGE" />
+      <package value="silver/client" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$" />
+      <pattern value="^Test_tsClient_ExecuteCmd$" />
+      <method v="2" />
+    </configuration>
     <list>
       <item itemvalue="Go Build.go build main.go" />
-      <item itemvalue="Go Test.TestClient_Operate in silver/client (1)" />
-      <item itemvalue="Go Build.go build silver/test" />
+      <item itemvalue="Go Test.TestNode2 in main_test.go (1)" />
+      <item itemvalue="Go Test.Test_tsClient_ExecuteCmd in silver/client" />
       <item itemvalue="Go Test.TestNode2 in main_test.go" />
-      <item itemvalue="Go Test.TestClient_Operate in silver/client" />
+      <item itemvalue="Go Test.Test_tsClient_ExecuteCmd in silver/client (1)" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Go Test.TestClient_Operate in silver/client" />
+        <item itemvalue="Go Test.Test_tsClient_ExecuteCmd in silver/client" />
         <item itemvalue="Go Test.TestNode2 in main_test.go" />
         <item itemvalue="Go Build.go build main.go" />
-        <item itemvalue="Go Build.go build silver/test" />
-        <item itemvalue="Go Test.TestClient_Operate in silver/client (1)" />
+        <item itemvalue="Go Test.TestNode2 in main_test.go (1)" />
+        <item itemvalue="Go Test.Test_tsClient_ExecuteCmd in silver/client (1)" />
       </list>
     </recent_temporary>
   </component>
@@ -242,7 +277,30 @@
       <workItem from="1576458367107" duration="19352000" />
       <workItem from="1576497046317" duration="5996000" />
       <workItem from="1576509014040" duration="367000" />
-      <workItem from="1576545112790" duration="11645000" />
+      <workItem from="1576545112790" duration="12702000" />
+      <workItem from="1576663194240" duration="1261000" />
+      <workItem from="1576717668734" duration="3267000" />
+      <workItem from="1576759631095" duration="10294000" />
+      <workItem from="1576830213394" duration="2439000" />
+      <workItem from="1576889598509" duration="27540000" />
+      <workItem from="1576926019578" duration="10373000" />
+      <workItem from="1577169396055" duration="6569000" />
+      <workItem from="1577178617260" duration="11114000" />
+      <workItem from="1577322764267" duration="21195000" />
+      <workItem from="1577362586189" duration="10506000" />
+      <workItem from="1577408544821" duration="2494000" />
+      <workItem from="1577443961945" duration="11105000" />
+      <workItem from="1577512184856" duration="14758000" />
+      <workItem from="1577543340485" duration="4959000" />
+      <workItem from="1577586421859" duration="4714000" />
+      <workItem from="1577627665081" duration="4099000" />
+      <workItem from="1577667754035" duration="7057000" />
+      <workItem from="1577702486842" duration="799000" />
+      <workItem from="1577703307183" duration="261000" />
+      <workItem from="1577703702641" duration="2069000" />
+      <workItem from="1577713663030" duration="5050000" />
+      <workItem from="1577719017203" duration="12000" />
+      <workItem from="1577754541378" duration="8155000" />
     </task>
     <servers />
   </component>
