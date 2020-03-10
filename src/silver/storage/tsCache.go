@@ -26,7 +26,7 @@ type tsCacheData struct {
 
 
 func (c *tsCacheData) writeTsCache(dataBase,tableName,tagKv,fieldKey string,tags map[string]string,
-	startTime,endTime int64,value map[int64][]byte) {
+	startTime,endTime int64,value map[int64]float64) {
 	  uniqueKey:=dataBase+tableName+tagKv+fieldKey
 	  tsValue:=&Value{
 		  Kv:      value,
@@ -66,9 +66,9 @@ func (c *tsCacheData) writeTsCache(dataBase,tableName,tagKv,fieldKey string,tags
 		       for kt,vv:=range value {
 				   _,exist:=v.Kv[kt]
 				   if exist {
-					   c.size-=int64(len(v.Kv[kt]))
+					 //  c.size-=int64(len(v.Kv[kt]))
 					   v.Kv[kt]=vv
-					   c.size+=int64(len(vv))
+					  // c.size+=int64(len(vv))
 				   }else {
 				   	   if kt > rd.endTime {
                            rd.endTime=kt
@@ -77,85 +77,13 @@ func (c *tsCacheData) writeTsCache(dataBase,tableName,tagKv,fieldKey string,tags
 				   	   	   rd.startTime=kt
 					   }
 					   v.Kv[kt]=vv
-					   c.size=kt+int64(len(vv))
+					  // c.size=kt+int64(len(vv))
 					   c.count+=1
 				   }
 			   }
 			}
 		 }
 	  }
-}
-
-/*
-func  (c *tsCacheData) readTsCache(dataBase,tableName,tagKv,fieldKey string,
-	tags map[string]string,startTime,endTime int64) map[int64][]byte {
-	uniqueKey:=dataBase+tableName+tagKv+fieldKey
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-	rd,ok:=c.cache[tableName]
-	if !ok {
-		bv:=c.readTsBuffer(dataBase,tableName,tagKv,fieldKey,tags,startTime,endTime)
-        sv:=c.readTsData(dataBase,tableName,tagKv,fieldKey,tags,startTime,endTime)
-        kv:=mergeMap(bv,sv)
-        c.writeTsCache(dataBase,tableName,tagKv,fieldKey,tags,startTime,endTime,kv)
-        return kv
-	}
-	v,ok:=rd.rPoint[uniqueKey]
-	if !ok {
-		bv:=c.readTsBuffer(dataBase,tableName,tagKv,fieldKey,tags,startTime,endTime)
-		sv:=c.readTsData(dataBase,tableName,tagKv,fieldKey,tags,startTime,endTime)
-		kv:=mergeMap(bv,sv)
-		c.writeTsCache(dataBase,tableName,tagKv,fieldKey,tags,startTime,endTime,kv)
-		return kv
-	}
-	if startTime >= rd.startTime && endTime <= rd.endTime {
-		return v.Kv
-	}
-	if startTime < rd.startTime && endTime >= rd.startTime && endTime < rd.endTime {
-		cv:=c.readTsCache(dataBase,tableName,tagKv,fieldKey,tags,rd.startTime,endTime)
-		bv:=c.readTsBuffer(dataBase,tableName,tagKv,fieldKey,tags,startTime,endTime)
-		sv:=c.readTsData(dataBase,tableName,tagKv,fieldKey,tags,startTime,rd.startTime)
-		tempKv:=mergeMap(sv,cv)
-		kv:=mergeMap(bv,tempKv)
-		c.writeTsCache(dataBase,tableName,tagKv,fieldKey,tags,startTime,endTime,kv)
-		return kv
-	}
-	if startTime >= rd.startTime && startTime <=rd.endTime && endTime > rd.endTime {
-		cv:=c.readTsCache(dataBase,tableName,tagKv,fieldKey,tags,startTime,rd.endTime)
-		bv:=c.readTsBuffer(dataBase,tableName,tagKv,fieldKey,tags,startTime,endTime)
-		sv:=c.readTsData(dataBase,tableName,tagKv,fieldKey,tags,rd.endTime,endTime)
-		tempKv:=mergeMap(sv,cv)
-		kv:=mergeMap(bv,tempKv)
-		c.writeTsCache(dataBase,tableName,tagKv,fieldKey,tags,startTime,endTime,kv)
-		return kv
-	}
-	if startTime < rd.startTime && endTime > rd.endTime {
-		cv:=c.readTsCache(dataBase,tableName,tagKv,fieldKey,tags,rd.startTime,rd.endTime)
-		bv:=c.readTsBuffer(dataBase,tableName,tagKv,fieldKey,tags,startTime,endTime)
-		sv1:=c.readTsData(dataBase,tableName,tagKv,fieldKey,tags,startTime,rd.startTime)
-		sv2:=c.readTsData(dataBase,tableName,tagKv,fieldKey,tags,rd.endTime,endTime)
-		tempKv1:=mergeMap(sv1,sv2)
-		tempKv2:=mergeMap(tempKv1,cv)
-		kv:=mergeMap(bv,tempKv2)
-		c.writeTsCache(dataBase,tableName,tagKv,fieldKey,tags,startTime,endTime,kv)
-		return kv
-	}
-	bv:=c.readTsBuffer(dataBase,tableName,tagKv,fieldKey,tags,startTime,endTime)
-	sv:=c.readTsData(dataBase,tableName,tagKv,fieldKey,tags,startTime,endTime)
-	kv:=mergeMap(bv,sv)
-	c.writeTsCache(dataBase,tableName,tagKv,fieldKey,tags,startTime,endTime,kv)
-	return kv
-}  */
-
-func mergeMap (bv map[int64][]byte,sv map[int64][]byte) map[int64][]byte {
-	kv:=make(map[int64][]byte,0)
-	for k,v:=range sv {
-		kv[k]=v
-	}
-	for k,v:=range bv {
-		kv[k]=v
-	}
-	return kv
 }
 
 func NewtsCacheData(ttl int,tss *tss) *tsCacheData {
@@ -180,11 +108,11 @@ func (c *tsCacheData) expire() {
    	  c.mutex.RLock()
    	  if c.cache != nil {
 		  for tk,rd:=range c.cache {
-			  c.mutex.RUnlock()
 			  if rd.created.Add(c.ttl).Before(time.Now()) {
+			  	  c.mutex.Lock()
                   delete(c.cache,tk)
+			  	  c.mutex.Unlock()
 			  }
-			  c.mutex.RLock()
 		  }
 	  }
       c.mutex.RUnlock()

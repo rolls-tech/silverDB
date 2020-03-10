@@ -10,7 +10,7 @@ message wPoint {
 }
 
 message value {
-    map<int64,bytes> kv=1;
+    map<int64,double> kv=1;
 }
 
 message rPoint {

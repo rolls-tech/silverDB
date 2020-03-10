@@ -4,20 +4,19 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"github.com/boltdb/bolt"
 	"github.com/golang/protobuf/proto"
 	"io"
 	"log"
 	"net"
+	"silver/client"
 	"silver/cmd"
 	"silver/storage"
 	"strconv"
 	"strings"
-	"sync"
 )
 
 
-func (s *Server) handleTsSetData(r *bufio.Reader,conn net.Conn) (*storage.WPoint,string,error){
+func (s *Server) handleTsSetData(r *bufio.Reader,conn net.Conn) (*storage.WPoint,string,error) {
 	wp,e := parseWPoint(r)
 	if e != nil {
 		return nil,"",e
@@ -62,20 +61,81 @@ func parseWPoint(r *bufio.Reader) (*storage.WPoint,error) {
 }
 
 
+func (s *Server) getMetaData(metaPrefix string) {
+	e:=s.GetService(metaPrefix)
+	if e !=nil {
+		log.Println(e)
+	}
+	fmt.Println("Get metaData:",s.ServerList)
+	select{
+
+	}
+}
+
+
+func (s *Server) handleTsGetIndex (r *bufio.Reader,conn net.Conn) (*cmd.GetCmd,string,error){
+	gc,e := parseGetCmd(r)
+	if e != nil {
+		return nil,"",e
+	}
+	var tagKv string
+
+	if gc.Tags != nil {
+		for tagK,tagV:=range gc.Tags {
+			tagKv+=tagK+tagV
+		}
+	}
+
+	/*
+	  1、根据database+tableName,获取元数据对应IP
+
+	  2、然后根据对应IP和查询条件，查询索引，获取 tags , 进行数据查询，并返回结果
+
+	*/
+	nodeMap,ok:=s.ServerList[gc.DataBase+gc.TableName]
+	if !ok {
+		return nil,"",e
+	}
+	if nodeMap != nil {
+		for addr,_:=range nodeMap {
+			tc:= client.NewTsClient (addr, "tsStorage")
+            // 去查询索引
+            // 在节点获取tags，直接返回查询结果
+		}
+	}
+
+
+	seriesKey:=gc.DataBase+gc.TableName+tagKv
+	addr, ok := s.ShouldProcess(seriesKey)
+	if !ok {
+		aLen:= len(addr)
+		_, e := conn.Write([]byte(fmt.Sprintf("R%d,%s",aLen,addr)))
+		if e != nil {
+			log.Println(e.Error())
+		}
+		return nil,"",errors.New("redirect " + addr)
+	}
+	return gc,tagKv,nil
+}
+
+
+
+
 func (s *Server) handleTsGetData(r *bufio.Reader,conn net.Conn) (*cmd.GetCmd,string,error){
 	  gc,e := parseGetCmd(r)
 	  if e != nil {
 		return nil,"",e
 	  }
 	  var tagKv string
+
 	  if gc.Tags != nil {
 		for tagK,tagV:=range gc.Tags {
 			tagKv+=tagK+tagV
 		}
 	  }
-	  seriesKey:=gc.DataBase+gc.TableName+tagKv
-	  addr, ok := s.ShouldProcess(seriesKey)
-	  if !ok {
+	   seriesKey:=gc.DataBase+gc.TableName+tagKv
+	   addr, ok := s.ShouldProcess(seriesKey)
+	   if !ok {
 		aLen:= len(addr)
 		_, e := conn.Write([]byte(fmt.Sprintf("R%d,%s",aLen,addr)))
 		if e != nil {
@@ -103,39 +163,27 @@ func parseGetCmd(r *bufio.Reader) (*cmd.GetCmd,error) {
 	return data,e
 }
 
-
-func (s *Server) tsGet(ch chan chan  *storage.Value,conn net.Conn, r *bufio.Reader,dbCh chan []*bolt.DB) error {
-	c:=make(chan *storage.Value)
+func (s *Server) tsGet(ch chan chan  *storage.Value,conn net.Conn, r *bufio.Reader) error {
+	c:=make(chan *storage.Value,0)
 	ch <-c
 	gc,tagKv,e:=s.handleTsGetData(r,conn)
 	if e !=nil {
-		c<-&storage.Value{}
+		c <- &storage.Value{}
 		log.Println(e)
 		return e
 	}
-	kv,dbList:=s.ReadTsData(gc.DataBase,gc.TableName,tagKv,gc.FieldKey,gc.Tags,gc.StartTime,gc.EndTime)
-	log.Println("dbList",dbList)
-	value:=&storage.Value {
-		Kv:                   kv,
-	}
-	c <- value
-	if len(dbList) != 0 {
-		var wg sync.WaitGroup
-		for n,_:=range dbList {
-			db:=dbList[n]
-			wg.Add(1)
-			go func(wg *sync.WaitGroup) {
-				wg.Done()
-				defer db.Close()
-			}(&wg)
+	kv:=s.ReadTsData(gc.DataBase,gc.TableName,tagKv,gc.FieldKey,gc.Tags,gc.StartTime,gc.EndTime)
+	if kv != nil {
+		value:=&storage.Value {
+			Kv:                   kv,
 		}
-		wg.Wait()
+		c <- value
 	}
 	return nil
 }
 
 func (s *Server) tsSet(ch chan chan *storage.WPoint,conn net.Conn, r *bufio.Reader) error {
-	c:=make(chan *storage.WPoint)
+	c:=make(chan *storage.WPoint,0)
 	ch <- c
 	wp,tagKv,e := s.handleTsSetData(r,conn)
 	if e != nil {
@@ -154,7 +202,7 @@ func (s *Server) tsSet(ch chan chan *storage.WPoint,conn net.Conn, r *bufio.Read
 	return nil
 }
 
-func tsGetReply(conn net.Conn,resultCh chan chan *storage.Value,dbCh chan []*bolt.DB) {
+func tsGetReply(conn net.Conn,resultCh chan chan *storage.Value) {
 	defer conn.Close()
 	for {
 		c,open := <- resultCh
@@ -165,10 +213,10 @@ func tsGetReply(conn net.Conn,resultCh chan chan *storage.Value,dbCh chan []*bol
 		if r == nil {
 			return
 		}
-		if !open{
+		if !open {
 			return
 		}
-		e:=sendGetResponse(r,nil,conn,dbCh)
+		e:=sendGetResponse(r,nil,conn)
 		if e !=nil {
 			log.Println("close connection due to error:", e)
 			return
@@ -176,7 +224,7 @@ func tsGetReply(conn net.Conn,resultCh chan chan *storage.Value,dbCh chan []*bol
 	}
 }
 
-func sendGetResponse(value *storage.Value, err error, conn net.Conn,dbCh chan []*bolt.DB) error {
+func sendGetResponse(value *storage.Value, err error, conn net.Conn) error {
 	if err != nil {
 		errString := err.Error()
 		tmp := fmt.Sprintf("-%d", len((errString)+errString))
@@ -188,18 +236,9 @@ func sendGetResponse(value *storage.Value, err error, conn net.Conn,dbCh chan []
 		log.Println(e.Error())
 		return e
 	}
-	_,e= conn.Write(append([]byte(fmt.Sprintf("V%d,%s,",len(data),data))))
-   /*dbList:=<-dbCh
-	var wg sync.WaitGroup
-	for n,_:=range dbList {
-		db:=dbList[n]
-		wg.Add(1)
-		go func(wg *sync.WaitGroup) {
-			wg.Done()
-			defer db.Close()
-		}(&wg)
+	if value.Kv != nil {
+		_,e= conn.Write(append([]byte(fmt.Sprintf("V%d,%s,",len(data),data))))
 	}
-	wg.Wait()*/
 	return e
 }
 

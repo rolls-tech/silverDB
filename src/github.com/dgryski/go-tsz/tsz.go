@@ -21,8 +21,8 @@ type Series struct {
 	sync.Mutex
 
 	// TODO(dgryski): timestamps in the paper are uint64
-	T0  uint32
-	t   uint32
+	T0  int64
+	t   int64
 	val float64
 
 	bw       bstream
@@ -30,18 +30,18 @@ type Series struct {
 	trailing uint8
 	finished bool
 
-	tDelta uint32
+	tDelta uint64
 }
 
 // New series
-func New(t0 uint32) *Series {
+func New(t0 int64) *Series {
 	s := Series{
 		T0:      t0,
 		leading: ^uint8(0),
 	}
 
 	// block header
-	s.bw.writeBits(uint64(t0), 32)
+	s.bw.writeBits(uint64(t0), 64)
 
 	return &s
 
@@ -72,38 +72,37 @@ func (s *Series) Finish() {
 }
 
 // Push a timestamp and value to the series
-func (s *Series) Push(t uint32, v float64) {
+func (s *Series) Push(t int64, v float64) {
 	s.Lock()
 	defer s.Unlock()
-
 	if s.t == 0 {
 		// first point
 		s.t = t
 		s.val = v
-		s.tDelta = t - s.T0
-		s.bw.writeBits(uint64(s.tDelta), 14)
+		s.tDelta = uint64(t - s.T0 )
+		s.bw.writeBits(s.tDelta, 14)
 		s.bw.writeBits(math.Float64bits(v), 64)
 		return
 	}
 
-	tDelta := t - s.t
-	dod := int32(tDelta - s.tDelta)
+	tDelta := uint64(t - s.t)
+	dod := int64(tDelta - s.tDelta)
 
 	switch {
 	case dod == 0:
 		s.bw.writeBit(zero)
-	case -63 <= dod && dod <= 64:
+	case -8191 <= dod && dod <= 8192:
 		s.bw.writeBits(0x02, 2) // '10'
-		s.bw.writeBits(uint64(dod), 7)
-	case -255 <= dod && dod <= 256:
+		s.bw.writeBits(uint64(dod), 14)
+	case -65535 <= dod && dod <= 65536:
 		s.bw.writeBits(0x06, 3) // '110'
-		s.bw.writeBits(uint64(dod), 9)
-	case -2047 <= dod && dod <= 2048:
+		s.bw.writeBits(uint64(dod), 17)
+	case -524287 <= dod && dod <= 524288:
 		s.bw.writeBits(0x0e, 4) // '1110'
-		s.bw.writeBits(uint64(dod), 12)
+		s.bw.writeBits(uint64(dod), 20)
 	default:
 		s.bw.writeBits(0x0f, 4) // '1111'
-		s.bw.writeBits(uint64(dod), 32)
+		s.bw.writeBits(uint64(dod), 64)
 	}
 
 	vDelta := math.Float64bits(v) ^ math.Float64bits(s.val)
@@ -159,9 +158,9 @@ func (s *Series) Iter() *Iter {
 
 // Iter lets you iterate over a series.  It is not concurrency-safe.
 type Iter struct {
-	T0 uint32
+	T0 int64
 
-	t   uint32
+	t   int64
 	val float64
 
 	br       bstream
@@ -170,21 +169,19 @@ type Iter struct {
 
 	finished bool
 
-	tDelta uint32
+	tDelta uint64
 	err    error
 }
 
 func bstreamIterator(br *bstream) (*Iter, error) {
-
 	br.count = 8
-
-	t0, err := br.readBits(32)
+	t0, err := br.readBits(64)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Iter{
-		T0: uint32(t0),
+		T0: int64(t0),
 		br: *br,
 	}, nil
 }
@@ -208,8 +205,8 @@ func (it *Iter) Next() bool {
 			it.err = err
 			return false
 		}
-		it.tDelta = uint32(tDelta)
-		it.t = it.T0 + it.tDelta
+		it.tDelta = tDelta
+		it.t = it.T0 + int64(it.tDelta)
 		v, err := it.br.readBits(64)
 		if err != nil {
 			it.err = err
@@ -236,19 +233,19 @@ func (it *Iter) Next() bool {
 		d |= 1
 	}
 
-	var dod int32
+	var dod int64
 	var sz uint
 	switch d {
 	case 0x00:
 		// dod == 0
 	case 0x02:
-		sz = 7
+		sz = 14
 	case 0x06:
-		sz = 9
+		sz = 17
 	case 0x0e:
-		sz = 12
+		sz = 20
 	case 0x0f:
-		bits, err := it.br.readBits(32)
+		bits, err := it.br.readBits(64)
 		if err != nil {
 			it.err = err
 			return false
@@ -260,7 +257,7 @@ func (it *Iter) Next() bool {
 			return false
 		}
 
-		dod = int32(bits)
+		dod = int64(bits)
 	}
 
 	if sz != 0 {
@@ -273,13 +270,13 @@ func (it *Iter) Next() bool {
 			// or something
 			bits = bits - (1 << sz)
 		}
-		dod = int32(bits)
+		dod = int64(bits)
 	}
 
-	tDelta := it.tDelta + uint32(dod)
+	tDelta := it.tDelta + uint64(dod)
 
 	it.tDelta = tDelta
-	it.t = it.t + it.tDelta
+	it.t = it.t + int64(it.tDelta)
 
 	// read compressed value
 	bit, err := it.br.readBit()
@@ -335,7 +332,7 @@ func (it *Iter) Next() bool {
 }
 
 // Values at the current iterator position
-func (it *Iter) Values() (uint32, float64) {
+func (it *Iter) Values() (int64, float64) {
 	return it.t, it.val
 }
 

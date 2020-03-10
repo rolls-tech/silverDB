@@ -28,7 +28,7 @@ func NewGetCmd(dataBase,tableName,fieldKey string,tags map[string]string,startTi
 	return gc
 }
 
-func NewSetCmd(dataBase,tableName,fieldKey string,tags map[string]string, fieldValue map[int64][]byte) *SetCmd {
+func NewSetCmd(dataBase,tableName,fieldKey string,tags map[string]string, fieldValue map[int64]float64) *SetCmd {
    kv:=&storage.Value{
 	   Kv:            fieldValue,
    }
@@ -47,7 +47,7 @@ func NewSetCmd(dataBase,tableName,fieldKey string,tags map[string]string, fieldV
 }
 
 func NewCmd (cmdType,dataBase,tableName,fieldKey string,tags map[string]string,
-	startTime,endTime int64,fieldValue map[int64][]byte) *Cmd {
+	startTime,endTime int64,fieldValue map[int64]float64) *Cmd {
 		c:=&Cmd{
 			CmdType: cmdType,
 			Gd:  GetCmd{},

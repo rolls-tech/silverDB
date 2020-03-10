@@ -1,7 +1,7 @@
 package client
 
 import (
-	cmd2 "silver/cmd"
+	"silver/cmd"
 	"silver/storage"
 	"testing"
 	"time"
@@ -11,8 +11,13 @@ func Test_tsClient_ExecuteCmd(t *testing.T) {
 	tagKv:=make(map[string]string,0)
 	tagKv["k1"]="v1"
 	tagKv["k2"]="v2"
-	kv:=make(map[int64][]byte,0)
-	kv[time.Now().UnixNano()] = []byte("123")
+	kv:=make(map[int64]float64,0)
+	/*
+	for n:=0; n < 10000 ;n++ {
+		kv[time.Now().UnixNano()+int64(n)] = float64(n)
+	}
+	*/
+	kv[time.Now().UnixNano()] = float64(123)
 	value:=&storage.Value {
 		Kv:                   kv,
 	}
@@ -24,27 +29,26 @@ func Test_tsClient_ExecuteCmd(t *testing.T) {
 		Tags:                 tagKv,
 		Value:                filedKv,
 	}
-
-	setCmd:=&cmd2.SetCmd{Wp:wp}
-	getCmd:=&cmd2.GetCmd{
+	setCmd:=&cmd.SetCmd{Wp:wp}
+	cmd1:=&cmd.Cmd {
+			CmdType: "set",
+			Gd:      cmd.GetCmd{},
+			Sd:      *setCmd,
+		}
+	getCmd:=&cmd.GetCmd{
 		DataBase:             "db1",
 		TableName:            "table1",
 		Tags:                 tagKv,
 		FieldKey:             "key",
-		StartTime:            1577590990861297500,
-		EndTime:              1577778353908801100,
+		StartTime:            1581329012899665539,
+		EndTime:              1581501812899665539,
 	}
-	cmd1:=&cmd2.Cmd {
-		CmdType: "set",
-		Gd:      cmd2.GetCmd{},
-		Sd:      *setCmd,
-	}
-	cmd2:=&cmd2.Cmd{
+	cmd2:=&cmd.Cmd {
 		CmdType: "get",
 		Gd:      *getCmd,
-		Sd:      cmd2.SetCmd{},
+		Sd:      cmd.SetCmd{},
 	}
-	tc:= NewTsClient("127.0.0.1:12346", "tsStorage")
+	tc:= NewTsClient("127.0.0.1:12348", "tsStorage")
 	tc.ExecuteCmd(cmd1)
 	tc.ExecuteCmd(cmd2)
 }

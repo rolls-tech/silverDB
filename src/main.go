@@ -5,6 +5,8 @@ import (
 	"log"
 	"silver/cluster"
 	"silver/http"
+	"silver/metadata"
+	"silver/register"
 	"silver/storage"
 	"silver/worker"
 )
@@ -27,6 +29,9 @@ func init() {
 	//log.Println("table is",table)
 	//log.Println("node is", node)
 	//log.Println("cluster is", clus)
+
+
+
 
 }
 
@@ -94,14 +99,31 @@ func main() {
 
 	allNodes,_:=initNodes()
 	node1:=allNodes.nodes[0]
-
-	ts:=storage.NewTss(node1.dataDir)
+    flushCount:=5000
+    indexDir:=make([]string,0)
+	tss:=storage.NewTss(node1.dataDir)
+	wal:="D:\\dev\\silver\\wal1\\"
 	//node1
-	c1 := storage.New(typ,ts)
+	m1:=metadata.NewMeta(node1.dataDir,node1.tcpAddr)
+	c1 := storage.New(typ,wal,indexDir,tss,m1,int64(flushCount))
 	n1, err := cluster.New(node1.cluAddr,node1.cluAddr)
 	if err != nil {
 		panic(err)
 	}
-	go worker.New(c1, n1).Listen(typ,node1.tcpAddr)
+	d1,err:= register.NewDiscoverClient([]string{"127.0.0.1:2379"},5)
+	if err != nil {
+		panic(err)
+	}
+	s1:=worker.New(c1, n1, d1)
+	if m1.MetaData != nil {
+		r1, _ := register.NewNodeRegister([]string{"127.0.0.1:2379"}, 10, 10,s1)
+		for db,tb:=range m1.MetaData {
+			e:=r1.PutNode("/silver/metaData/"+db+"/"+tb+"/"+m1.NodeAddr,"")
+			if e !=nil {
+				panic(e)
+			}
+		}
+	}
+	go s1.Listen(typ,node1.tcpAddr)
 	http.New(c1, n1).Listen(node1.httpAddr)
 }

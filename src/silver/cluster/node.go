@@ -3,7 +3,6 @@ package cluster
 import (
 	"github.com/hashicorp/memberlist"
 	"io/ioutil"
-	"log"
 	"stathat.com/c/consistent"
 	"strconv"
 	"strings"
@@ -21,16 +20,16 @@ type node struct {
 	addr string
 }
 
-func (n *node) Addr() string {
-	return n.addr
-}
 
 func (n *node) ShouldProcess(key string) (string,bool) {
     addr,_:=n.Get(key)
     return addr,addr==n.addr
 }
 
-//var bindPort = flag.Int("port", 8001, "gossip port")
+
+func (n *node) Addr() string {
+	return n.addr
+}
 
 
 func New(addr string,cluster string) (Node,error) {
@@ -55,7 +54,6 @@ func New(addr string,cluster string) (Node,error) {
 	if err !=nil {
 		return nil,err
 	}
-	log.Println(l.Members())
 	circle:=consistent.New()
 	circle.NumberOfReplicas=256
 	go func(){

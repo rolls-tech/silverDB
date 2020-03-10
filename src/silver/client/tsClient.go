@@ -45,6 +45,7 @@ func (tc *tsClient) ExecuteCmd(cmd *cmd.Cmd){
 	tc.pipelineRun(c,cmd)
 }
 
+
 func (tc *tsClient) pipelineRun(c *client,cmd *cmd.Cmd) {
 	if tc.storageType == "" {
 		log.Println("storageType should be not nil")
@@ -53,21 +54,21 @@ func (tc *tsClient) pipelineRun(c *client,cmd *cmd.Cmd) {
     if cmd.CmdType == "set" {
     	c.sendSet(cmd.Sd)
 		_,_=c.handleSetResponse(cmd)
-		log.Println("Write successfully!")
-
 	}
 	if cmd.CmdType == "get" {
 		c.sendGet(cmd.Gd)
 		value,_:=c.handleGetResponse(cmd)
-		fieldKv:=make(map[string]*storage.Value,0)
-		fieldKv[cmd.Gd.FieldKey]=&value
-		wp:=storage.WPoint{
-			DataBase:             cmd.Gd.DataBase,
-			TableName:            cmd.Gd.TableName,
-			Tags:                 cmd.Gd.Tags,
-			Value:                fieldKv,
+		if value.Kv != nil {
+			fieldKv:=make(map[string]*storage.Value,0)
+			fieldKv[cmd.Gd.FieldKey]=&value
+			wp:=storage.WPoint{
+				DataBase:             cmd.Gd.DataBase,
+				TableName:            cmd.Gd.TableName,
+				Tags:                 cmd.Gd.Tags,
+				Value:                fieldKv,
+			}
+			log.Println(wp)
 		}
-		log.Println(wp)
 	}
 }
 
@@ -128,6 +129,7 @@ func (c *client) handleSetResponse(cmd *cmd.Cmd) (storage.WPoint,error) {
 	case 'V':
 		v,e:= c.recvResponse()
 		_=proto.Unmarshal(v,&data)
+		//log.Println("Write successfully!")
 		return data,e
 	}
 	return data,e
@@ -173,5 +175,3 @@ func (c *client) recvResponse() ([]byte, error) {
 	}
 	return value,nil
 }
-
-

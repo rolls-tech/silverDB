@@ -3,6 +3,8 @@ package main
 import (
 	"silver/cluster"
 	"silver/http"
+	"silver/metadata"
+	"silver/register"
 	"silver/storage"
 	"silver/worker"
 	"testing"
@@ -40,12 +42,32 @@ func TestNode2(t2 *testing.T) {
 		cluAddr:  "127.0.0.1:7946",
 	}
 	ts:=storage.NewTss(node2.dataDir)
-	c2 := storage.New("tsStorage",ts)
+	wal:="D:\\dev\\silver\\wal2\\"
+
+	flushCount:=5000
+	indexDir:=make([]string,0)
+
+	m2:=metadata.NewMeta(node2.dataDir,node2.tcpAddr)
+	c2 := storage.New("tsStorage",wal,indexDir,ts,m2,int64(flushCount))
 	n2, err := cluster.New(node2.cluAddr,node1.cluAddr)
 	if err != nil {
 		panic(err)
 	}
-	go worker.New(c2, n2).Listen("tsStorage",node2.tcpAddr)
+	d2,err:= register.NewDiscoverClient([]string{"127.0.0.1:2379"},5)
+	if err != nil {
+		panic(err)
+	}
+	s2:=worker.New(c2, n2,d2)
+	if m2.MetaData != nil {
+		r1, _ := register.NewNodeRegister([]string{"127.0.0.1:2379"}, 10, 10,s2)
+		for db,tb:=range m2.MetaData {
+			e:=r1.PutNode("/silver/metaData/"+db+"/"+tb+"/"+node2.tcpAddr,"")
+			if e !=nil {
+				panic(e)
+			}
+		}
+	}
+	go s2.Listen("tsStorage",node2.tcpAddr)
 	http.New(c2, n2).Listen(node2.httpAddr)
 
 }
