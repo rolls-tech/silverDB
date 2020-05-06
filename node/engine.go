@@ -2,9 +2,9 @@ package node
 
 import (
 	"log"
-	"silverDB/config"
-	"silverDB/node/point"
-	"silverDB/node/storage"
+	"silver/config"
+	"silver/node/point"
+	"silver/node/storage"
 )
 
 

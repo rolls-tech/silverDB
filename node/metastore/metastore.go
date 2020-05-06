@@ -3,7 +3,7 @@ package metastore
 import (
 	"io/ioutil"
 	"log"
-	"silverDB/utils"
+	"silver/utils"
 	"strings"
 )
 

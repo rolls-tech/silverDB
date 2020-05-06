@@ -2,9 +2,9 @@ package main
 
 import (
 	"log"
-	"silverDB/config"
-	"silverDB/node"
-	"silverDB/node/metastore"
+	"silver/config"
+	"silver/node"
+	"silver/node/metastore"
 )
 
 

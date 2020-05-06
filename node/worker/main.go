@@ -2,8 +2,8 @@ package main
 
 import (
 	"log"
-	"silverDB/config"
-	"silverDB/node"
+	"silver/config"
+	"silver/node"
 )
 
 var c2 config.NodeConfig

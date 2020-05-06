@@ -1,8 +1,8 @@
 package client
 
 import (
-	"silverDB/config"
-	"silverDB/node/point"
+	"silver/config"
+	"silver/node/point"
 	"testing"
 	"time"
 )
