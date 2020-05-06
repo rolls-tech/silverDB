@@ -1,0 +1,18 @@
+syntax="proto3";
+
+package point;
+
+message writePoint {
+    string dataBase=1;
+    string tableName=2;
+    map<string,string> tags=3;
+    map<string,value> value=4;
+}
+
+message value {
+    map<int64,double> kv=1;
+}
+
+message readPoint {
+    map<string,value> readPoint=1;
+}

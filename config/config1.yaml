@@ -1,0 +1,27 @@
+nodeName: "node1"
+nodeAddr:
+  httpAddr: "127.0.0.1:12345"
+  cluAddr: "127.0.0.1:7947"
+  tcpAddr: "127.0.0.1:12346"
+nodeData: ["D:\\dev\\silverDB\\testdata1\\","D:\\dev\\silverDB\\testdata2\\","D:\\dev\\silverDB\\testdata3\\"]
+indexData: ["D:\\dev\\silverDB\\testdata1\\","D:\\dev\\silverDB\\testdata2\\","D:\\dev\\silverDB\\testdata3\\"]
+wal:
+  walData: "D:\\dev\\silverDB\\wal1\\"
+  ttl: 1
+  nums: 5
+  size: 100
+flush:
+  count: 5000
+  timeout: 3
+heatbeat:
+  timeout: 3
+  tick: 3
+metastore:
+  nodeAddr: ["127.0.0.1:2379","127.0.0.1:2379","127.0.0.1:2379"]
+  nodePath: "/silver/metaData/"
+  timeout : 10
+  heartbeat: 3
+discovery:
+  timeout: 10
+compressed: true
+indexed: true
