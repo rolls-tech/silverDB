@@ -28,7 +28,8 @@ func (s *Server) resolveWriteRequest(conn net.Conn, request *bufio.Reader) (*poi
 		st := utils.NewSortTags(wp.Tags)
 		sort.Sort(st)
 		for _, tags := range st {
-			tagKv+=tags.TagK+tags.TagV
+			temp:=tags.TagK+"="+tags.TagV+";"
+			tagKv+=temp
 		}
 	}
 	seriesKey:=dataBase+tableName+tagKv
@@ -51,6 +52,73 @@ func (s *Server) resolveWriteRequest(conn net.Conn, request *bufio.Reader) (*poi
 	return wp,tagKv,buf,nil
 }
 
+func (s *Server) resolverReadRequest(conn net.Conn, request *bufio.Reader) (*point.ReadPoint,string,map[string]bool,error) {
+	rp,e := s.readPoint(request)
+	var tagKv string
+	if e != nil {
+		return rp,tagKv,nil,e
+	}
+	if rp.Tags != nil {
+		st := utils.NewSortTags(rp.Tags)
+		sort.Sort(st)
+		for _, tags := range st {
+			temp:=tags.TagK+tags.TagV
+			tagKv+=temp
+		}
+	}
+	databaseName:=rp.DataBase
+	tableName:=rp.TableName
+	addrList,ok:=s.LocalMeta[databaseName+tableName]
+	if !ok {
+		log.Println("not find meta data ",databaseName,tableName)
+		_, e := conn.Write([]byte(fmt.Sprintf("M%d,%s", len("f"),"f")))
+		if e != nil {
+			log.Println("client meta data return failed",e.Error())
+			return rp,tagKv,addrList,e
+		}
+	}
+	return rp,tagKv,addrList,e
+}
+
+func (s *Server) resolverProxyRequest(request *bufio.Reader) (*point.ReadPoint,string,error) {
+	var tagKv string
+	rp,e:=s.readPoint(request)
+	if e !=nil {
+		return rp,tagKv,e
+	}
+	if rp.Tags != nil {
+		st := utils.NewSortTags(rp.Tags)
+		sort.Sort(st)
+		for _, tags := range st {
+			tagKv+=tags.TagK+tags.TagV
+		}
+	}
+	return rp,tagKv,nil
+}
+
+
+func (s *Server) readPoint(request *bufio.Reader) (*point.ReadPoint,error) {
+	l1,e:= readLen(request)
+	if e !=nil {
+		log.Println("not support message format !",e.Error())
+	}
+	dLen, e := strconv.Atoi(l1)
+	buf := make([]byte,dLen)
+	_, e = io.ReadFull(request, buf)
+	if e != nil {
+		return nil,e
+	}
+	data:=&point.ReadPoint{}
+	e=proto.Unmarshal(buf,data)
+	if e != nil {
+		log.Println(" readPoint deserialization failed! ",e.Error())
+		return nil,e
+	}
+	return data,e
+
+}
+
+
 func (s *Server) writePoint(request *bufio.Reader) (*point.WritePoint,[]byte,error){
 	l1,e:= readLen(request)
 	if e !=nil {
@@ -71,23 +139,12 @@ func (s *Server) writePoint(request *bufio.Reader) (*point.WritePoint,[]byte,err
 	return data,buf,e
 }
 
-func (s *Server) metaData() {
+func (s *Server) metaDataService() {
 	e:=s.MetaDataService()
 	if e !=nil {
 		log.Println(e)
 	}
-	fmt.Println("metaData: ",s.ServerList)
-	select {
-
-	}
 }
-
-
-
-
-
-
-
 
 
 func readLen(r *bufio.Reader) (string, error) {

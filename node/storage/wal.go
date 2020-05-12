@@ -5,7 +5,9 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"silverDB/utils"
+	"silver/config"
+	"silver/metastore"
+	"silver/utils"
 	"strconv"
 	"sync"
 )
@@ -15,26 +17,21 @@ type Wal struct {
 	size uint64
 	walDir string
 	maxSize int64
-	*dataBuffer
 }
 
-func NewWal(walDir string,dataDir,indexDir []string,isCompressed bool,ttl,size int64,flushCount int) *Wal {
+func NewWal(config config.NodeConfig,listener1 *metastore.Listener,register1 *metastore.Register) *Wal {
     return &Wal{
 		mutex:   sync.RWMutex{},
-		walDir:  walDir,
-		maxSize: size,
-		dataBuffer:  NewDataBuffer(dataDir,indexDir,isCompressed,ttl,flushCount),
+		walDir:  config.Wal.WalData,
+		maxSize: config.Wal.Size,
 	}
 }
 
 func(w *Wal) writeData(data *walData) error {
-	walCh:=make(chan bool,5000)
-	ok,e:=w.writeWal(data)
-	walCh <- ok
-	//正式写buffer
-	w.dataBuffer.writeData(data.wp,data.tagKv,walCh)
-	//正式写索引
-
+	//walCh:=make(chan bool,5000)
+	_,e:=w.writeWal(data)
+	/*walCh <- ok
+	w.dataBuffer.writeData(data.wp,data.tagKv,walCh)*/
 	return e
 }
 

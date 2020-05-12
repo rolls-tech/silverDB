@@ -55,9 +55,9 @@ func(c *client) writeRequest(wp *point.WritePoint) {
 		return
 	}
 	dLen:=len(data)
-	_, err := c.Write([]byte(fmt.Sprintf("S%d,%s",dLen,data)))
-	if err != nil {
-		log.Println("client write request failed !",err)
+	_, e = c.Write([]byte(fmt.Sprintf("S%d,%s",dLen,data)))
+	if e != nil {
+		log.Println("client send write request failed !",e)
 	}
 }
 
@@ -125,3 +125,50 @@ func readLen(r *bufio.Reader) string {
 	return strings.ReplaceAll(tmp, ",", "")
 }
 
+
+func (tc *tcpClient) ExecuteRead(rp *point.ReadPoint) {
+	c:=newClient(tc.serverAddr)
+	c.readRequest(rp)
+	c.processReadResponse()
+}
+
+func (c *client) readRequest(rp *point.ReadPoint) {
+	data,e:=proto.Marshal(rp)
+	if e !=nil {
+		log.Println(e.Error())
+	}
+	dLen:=len(data)
+	_,e=c.Write([]byte(fmt.Sprintf("G%d,%s",dLen,data)))
+	if e !=nil {
+		log.Println("client send read request failed !",e)
+	}
+}
+
+func (c *client) processReadResponse() {
+	op, e := c.r.ReadByte()
+	if e != nil {
+		if e != io.EOF {
+			log.Println("close connection due to error:", e)
+		}
+		return
+	}
+	switch op {
+	case 'f':
+		log.Println("client read response failed !", e)
+		return
+	case 'V':
+		v, e := c.recvResponse()
+		if e != nil {
+			log.Println("client read response failed !", e)
+			return
+		}
+		data:=&point.ReadPoint{}
+		e=proto.Unmarshal(v,data)
+		if e != nil {
+			log.Println(" readPoint deserialization failed ! ",e.Error())
+			return
+		}
+		log.Println(data)
+	}
+	return
+}

@@ -30,9 +30,26 @@ func Test(t *testing.T) {
 		Value:                filedKv,
 	}
 	config:=config.LoadConfigInfo("../../config/config1.yaml")
-
     tc:=NewClient(config.NodeAddr.TcpAddr)
     var writeList []*point.WritePoint
 	writeList=append(writeList, wp)
     tc.ExecuteWrite(writeList)
+}
+
+
+func TestRead(t *testing.T) {
+
+	tags:=make(map[string]string,0)
+	tags["k1"]="v1"
+	rp:=&point.ReadPoint{
+		DataBase:              "db1",
+		TableName:             "table1",
+		Tags:                 tags,
+		Metrics:              nil,
+		StartTime:            1589245880610794800,
+		EndTime:              1589245880611771999,
+	}
+	config:=config.LoadConfigInfo("../../config/config1.yaml")
+	tc:=NewClient(config.NodeAddr.TcpAddr)
+	tc.ExecuteRead(rp)
 }

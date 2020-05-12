@@ -6,9 +6,9 @@ import (
 	"log"
 	"math/rand"
 	"os"
-	"silverDB/compress"
-	"silverDB/node/point"
-	"silverDB/utils"
+	"silver/compress"
+	"silver/node/point"
+	"silver/utils"
 	"sort"
 	"strconv"
 	"strings"
@@ -86,8 +86,8 @@ func (s *kv) writeData (dataBase,table,tagKv string,tags map[string]string,data 
 }
 
 
-func (s *kv) readTsData(dataBase,tableName,tagKv,fieldKey string,
-	tags map[string]string,startTime,endTime int64) [][]byte {
+
+func (s *kv) readTsData(dataBase,tableName,tagKv,fieldKey string,startTime,endTime int64) [][]byte {
 	sTime := strconv.FormatInt(startTime, 10)
 	eTime := strconv.FormatInt(endTime, 10)
 	tableFileList:=s.getTableFile(dataBase,tableName,sTime,eTime)
@@ -209,7 +209,6 @@ type timeRange struct {
 	endTime int64
 }
 
-
 func (s *kv) spiltTimeRange(minTime,maxTime int64) []*timeRange {
 
 	timeRangeList:=make([]*timeRange,0)
@@ -283,7 +282,6 @@ func (s *kv) spiltTimeRange(minTime,maxTime int64) []*timeRange {
 
 	return nil
 }
-
 
 func (s *kv) scanDataDir(dataBase,tableName string,minTime,maxTime int64) map[string]*timeRange {
 	timeRangeList:=s.spiltTimeRange(minTime,maxTime)

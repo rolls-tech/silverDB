@@ -14,5 +14,10 @@ message value {
 }
 
 message readPoint {
-    map<string,value> readPoint=1;
+    string dataBase=1;
+    string tableName=2;
+    map<string,string> tags=3;
+    map<string,value> metrics=4;
+    int64 startTime=5;
+    int64 endTime=6;
 }

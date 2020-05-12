@@ -1,24 +1,34 @@
 package storage
 
 import (
+	"errors"
 	"github.com/boltdb/bolt"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
-	"silverDB/node/point"
-	"silverDB/utils"
+	"silver/node/point"
+	"silver/utils"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
 
+type indexTags struct {
+    tags  map[string]*indexMetric
+	count int
+}
+
+type indexMetric struct {
+	metric map[string]bool
+	count int
+}
+
 type indexNode struct {
 	database string
 	table string
-	indexTag map[string]string
-	metrics map[string]bool
-	tagsCount int
-	metricCount int
+	indexTag map[string]*indexTags
 	created time.Time
 	isChanged bool
 	next *indexNode
@@ -34,7 +44,7 @@ type indexKv struct {
 }
 
 
-type index struct {
+type Index struct {
 	mu sync.Mutex
 	writeData map[string]*indexNodeLinked
 	readData map[string]*indexNode
@@ -45,16 +55,17 @@ type index struct {
 }
 
 
-func NewIndex(ttl int64,indexDir []string) *index {
-	index:=&index{
+func NewIndex(ttl int64,indexDir []string) *Index {
+	index:=&Index{
 		mu:    sync.Mutex{},
-		readData:  make(map[string]*indexNode,0),
+		readData:  loadIndex(indexDir),
 		writeData: make(map[string]*indexNodeLinked,0),
 		ttl:   time.Duration(ttl) * time.Second,
 		size:  0,
 		count: 0,
 		indexKv: newIndexKv(indexDir),
 	}
+
 	go index.flush()
 	return index
 }
@@ -77,14 +88,11 @@ func newIndexKv(indexDir []string) *indexKv {
 	}
 }
 
-func newIndexNode(wp *point.WritePoint) *indexNode{
+func newIndexNode(databaseName,tableName string) *indexNode {
 	node:=&indexNode{
-		database:    wp.DataBase,
-		table:       wp.TableName,
-		indexTag:    make(map[string]string,0),
-		metrics:     make(map[string]bool,0),
-		tagsCount:   0,
-		metricCount: 0,
+		database:    databaseName,
+		table:       tableName,
+		indexTag:    make(map[string]*indexTags,0),
 		created:     time.Now(),
 		isChanged:   false,
 		next:        nil,
@@ -92,38 +100,55 @@ func newIndexNode(wp *point.WritePoint) *indexNode{
 	return node
 }
 
+func newIndexTags() *indexTags {
+	return &indexTags{
+		tags:  make(map[string]*indexMetric),
+		count: 0,
+	}
+}
 
-func (n *index) generateIndexNode(wp *point.WritePoint) *indexNode {
-	node:=newIndexNode(wp)
-	var tagKv string
+
+func newIndexMetric() *indexMetric {
+	return &indexMetric{
+		metric: make(map[string]bool),
+		count:  0,
+	}
+}
+
+
+func (n *Index) generateIndexNode(wp *point.WritePoint,sortTagKv string) *indexNode {
+	node:=newIndexNode(wp.DataBase,wp.TableName)
 	if wp.Tags != nil {
-		st := utils.NewSortTags(wp.Tags)
-		sort.Sort(st)
-		for _, tags := range st {
-			tagKv += tags.TagK + tags.TagV
-		}
 		tagSet := generateTagPrefix(wp.Tags)
 		if len(tagSet) > 0 {
 			for _, tag := range tagSet {
-				node.indexTag[tag] = tagKv
+				indexTags,ok:=node.indexTag[tag]
+				if !ok {
+					node.indexTag[tag]=newIndexTags()
+					indexTags=node.indexTag[tag]
+				}
+				metrics,ok:=indexTags.tags[sortTagKv]
+				if !ok {
+					indexTags.tags[sortTagKv]=newIndexMetric()
+					metrics=indexTags.tags[sortTagKv]
+				}
+				if wp.Value !=nil {
+					for key,_:=range wp.Value {
+						metrics.metric[key]=true
+					}
+				}
 			}
-		}
-	}
-    if wp.Value !=nil {
-    	for metric,_:=range wp.Value {
-    		node.metrics[metric]=true
 		}
 	}
 	return node
 }
 
 
-
-func (n *index) updateIndexData(wp *point.WritePoint,sortTagKv string) error {
+func (n *Index) updateIndexData(wp *point.WritePoint,sortTagKv string) error {
 	node,ok:=n.writeData[wp.DataBase+wp.TableName]
 	if !ok {
-		node=&indexNodeLinked{head:newIndexNode(wp)}
-		indexNode:=n.generateIndexNode(wp)
+		node=&indexNodeLinked{head:newIndexNode(wp.DataBase,wp.TableName)}
+		indexNode:=n.generateIndexNode(wp,sortTagKv)
 		n.mu.Lock()
 		indexNode.created=time.Now()
 		node.head.next=indexNode
@@ -135,50 +160,126 @@ func (n *index) updateIndexData(wp *point.WritePoint,sortTagKv string) error {
 	for current.next !=nil {
 	   current=current.next
 	}
-	current=n.generateIndexNode(wp)
+	current=n.generateIndexNode(wp,sortTagKv)
 	current.created=time.Now()
 	return nil
 }
 
 
-func (n *index) updateMemData(wp *point.WritePoint,sortTagKv string) error {
+func (n *Index) updateMemData(wp *point.WritePoint,sortTagKv string) error {
 	node,ok:=n.readData[wp.DataBase+wp.TableName]
 	if !ok {
-	   	indexNode:=n.generateIndexNode(wp)
+	   	indexNode:=n.generateIndexNode(wp,sortTagKv)
 	   	n.mu.Lock()
 	   	n.readData[wp.DataBase+wp.TableName]=indexNode
 	   	n.mu.Unlock()
 	   	return nil
 	}
-	if node.indexTag !=nil {
-		_,ok:=node.indexTag[sortTagKv]
-		if !ok {
-		  if wp.Tags !=nil {
-			  tagSet := generateTagPrefix(wp.Tags)
-			  if len(tagSet) > 0 {
-				  for _, tag := range tagSet {
-					  n.mu.Lock()
-					  node.indexTag[tag] = sortTagKv
-					  n.mu.Unlock()
-				  }
-			  }
-		  }
-		}
-	}
-	if node.metrics != nil {
-		if wp.Value != nil {
-			for metric,_:=range wp.Value {
-				n.mu.Lock()
-				node.metrics[metric]=true
-				n.mu.Unlock()
+	if wp.Tags != nil {
+		tagSet := generateTagPrefix(wp.Tags)
+		if len(tagSet) > 0 {
+			for _, tag := range tagSet {
+				indexTags,ok:=node.indexTag[tag]
+				if ok {
+					metric,ok:=indexTags.tags[sortTagKv]
+					if ok {
+						if wp.Value !=nil {
+							for key,_:=range wp.Value {
+								_,ok:=metric.metric[key]
+								if !ok {
+									metric.metric[key]=true
+								}
+							}
+						}
+					} else {
+						indexTags.tags[sortTagKv]=newIndexMetric()
+						metric,_:=indexTags.tags[sortTagKv]
+						if wp.Value !=nil {
+							for key,_:=range wp.Value {
+								metric.metric[key]=true
+							}
+						}
+
+					}
+				} else {
+					node.indexTag[tag]=newIndexTags()
+					indexTags,_:=node.indexTag[tag]
+					metric,_:=indexTags.tags[sortTagKv]
+					if wp.Value !=nil {
+						for key,_:=range wp.Value {
+							metric.metric[key]=true
+						}
+					}
+				}
 			}
 		}
 	}
 	return nil
 }
 
+func (n *Index) WriteData(wp *point.WritePoint,sortTagKv string) error {
+	return n.writeIndex(wp,sortTagKv)
+}
 
-func (n *index) writeIndex(wp *point.WritePoint,sortTagKv string) error {
+func (n *Index) ReadData(rp *point.ReadPoint,tagKv string) (map[string][]string,error) {
+	return n.readIndex(rp,tagKv)
+}
+
+func (n *Index) readIndex(rp *point.ReadPoint,tagKv string) (map[string][]string,error) {
+	tagMetrics:=make(map[string][]string,0)
+	node,ok:=n.readData[rp.DataBase+rp.TableName]
+	if !ok {
+		return tagMetrics,errors.New("non-existed "+rp.DataBase+" and "+rp.TableName)
+	}
+	if tagKv=="" {
+		for _,indexTags:=range node.indexTag {
+			for tag,fields:=range indexTags.tags {
+				var metrics []string
+				if rp.Metrics == nil && fields.metric != nil {
+					for metric,_:=range fields.metric {
+						metrics=append(metrics,metric)
+					}
+				}
+				if fields.metric != nil && rp.Metrics != nil {
+					for metric,_:=range rp.Metrics {
+						_,ok:=fields.metric[metric]
+						if ok {
+							metrics=append(metrics,metric)
+						}
+					}
+				}
+				tagMetrics[tag]=metrics
+			}
+		}
+		return tagMetrics,nil
+	} else {
+	   indexTags,ok:=node.indexTag[tagKv]
+	   if !ok {
+			return tagMetrics,errors.New("non-existed "+tagKv+ " tagSet ! ")
+		}
+	   for tag,fields:=range indexTags.tags {
+			var metrics []string
+			if rp.Metrics == nil && fields.metric != nil {
+				for metric,_:=range fields.metric {
+					metrics=append(metrics,metric)
+				}
+			}
+			if fields.metric != nil && rp.Metrics != nil {
+				for metric,_:=range rp.Metrics {
+					_,ok:=fields.metric[metric]
+					if ok {
+						metrics=append(metrics,metric)
+					}
+				}
+			}
+			tagMetrics[tag]=metrics
+		}
+		return tagMetrics,nil
+	}
+}
+
+
+func (n *Index) writeIndex(wp *point.WritePoint,sortTagKv string) error {
 	e:=n.updateIndexData(wp,sortTagKv)
 	e=n.updateMemData(wp,sortTagKv)
 	if e !=nil {
@@ -187,7 +288,7 @@ func (n *index) writeIndex(wp *point.WritePoint,sortTagKv string) error {
 	return e
 }
 
-func (n *index) writeIndexKv(node *indexNode) error {
+func (n *Index) writeIndexKv(node *indexNode) error {
 	rand.Seed(time.Now().UnixNano())
 	i:= rand.Intn(len(n.indexKv.indexDir))
 	indexFile:=n.indexKv.indexDir[i]+node.database+"_index.db"
@@ -208,17 +309,22 @@ func (n *index) writeIndexKv(node *indexNode) error {
 			return err
 		}
 		if node.indexTag != nil {
-			for tag, tagKv := range node.indexTag {
+			for tag, indexMetrics := range node.indexTag {
 				tagTable, err := rootTable.CreateBucketIfNotExists([]byte(tag))
 				if err != nil {
 					log.Println("create tag index failed !", err)
 					return err
 				}
-				if node.metrics != nil {
-					for metric, _ := range node.metrics {
-						err = tagTable.Put([]byte(tagKv), []byte(metric))
-						if err != nil {
-							return err
+				if indexMetrics.tags != nil {
+					for tagKv,metric:= range indexMetrics.tags {
+					   	if metric.metric != nil {
+					   		for k,_:=range metric.metric {
+								err = tagTable.Put([]byte(tagKv), []byte(k))
+								if err != nil {
+									log.Println("write index and tag failed !"+tagKv+" : "+k)
+									return err
+								}
+							}
 						}
 					}
 				}
@@ -233,7 +339,47 @@ func (n *index) writeIndexKv(node *indexNode) error {
 }
 
 
-func (n *index) flush() {
+func scanIndexKv(indexFile string,databaseName string,readData map[string]*indexNode) {
+	db:=openDB(indexFile)
+	defer db.Close()
+	if err:= db.View(func(tx *bolt.Tx) error {
+        scan:=tx.Cursor()
+		for tableName,_:=scan.First(); tableName != nil; tableName,_=scan.Next() {
+			   indexNode,ok:=readData[databaseName+string(tableName)]
+			   if !ok {
+			   	  readData[databaseName+string(tableName)]=newIndexNode(databaseName,string(tableName))
+			   	  indexNode=readData[databaseName+string(tableName)]
+			   }
+			   scanTag:=tx.Bucket(tableName).Cursor()
+			   for tag,_:=scanTag.First(); tag !=nil; tag,_=scanTag.Next() {
+			   	    tags,ok:=indexNode.indexTag[string(tag)]
+			   	    if !ok {
+						indexNode.indexTag[string(tag)]=newIndexTags()
+						tags=indexNode.indexTag[string(tag)]
+			   	    }
+			   	    t:=tx.Bucket(tableName).Bucket(tag)
+			   	    t.ForEach(func(tagKv,metric []byte) error {
+						metrics,ok:=tags.tags[string(tagKv)]
+						if !ok {
+							tags.tags[string(tagKv)]=newIndexMetric()
+							metrics=tags.tags[string(tagKv)]
+						}
+						_,ok=metrics.metric[string(metric)]
+						if !ok {
+							metrics.metric[string(metric)]=true
+						}
+                        return nil
+					})
+			   }
+		}
+		return nil
+	}); err != nil {
+		log.Println(err)
+	}
+}
+
+
+func (n *Index) flush() {
 	for {
 		time.Sleep(n.ttl)
 		if n.writeData !=nil {
@@ -293,6 +439,29 @@ func combine (index,n int,ts []string,temp string,tagSet []string) []string {
 }
 
 
+func loadIndex (indexDir []string) map[string]*indexNode {
+    readData:=make(map[string]*indexNode,0)
+	if len(indexDir) > 0 {
+		for _,dir:=range indexDir {
+		  	ok:=utils.CheckFileIsExist(dir)
+		  	if ok {
+				fileList,err:=ioutil.ReadDir(dir)
+				if err !=nil {
+					log.Println(err)
+				}
+				if len(fileList) > 0 {
+					for _,file:=range fileList {
+						if strings.HasSuffix(file.Name(),"_index.db") {
+							databaseName:=strings.Split(file.Name(),"_")[0]
+							scanIndexKv(dir+file.Name(),databaseName,readData)
+						}
+					}
+				}
+			}
+		}
+	}
+	return readData
+}
 
 
 

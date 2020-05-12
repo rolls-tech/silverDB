@@ -5,9 +5,9 @@ import (
 	"encoding/binary"
 	"github.com/boltdb/bolt"
 	"log"
-	"silverDB/compress"
-	"silverDB/node/point"
-	"silverDB/utils"
+	"silver/compress"
+	"silver/node/point"
+	"silver/utils"
 	"time"
 )
 

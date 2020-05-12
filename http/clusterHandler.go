@@ -1,11 +1,9 @@
 package http
 
 import (
-	"encoding/json"
-	"log"
-	"net/http"
-)
 
+)
+/*
 type clusterHandler struct {
 	*Server
 }
@@ -27,4 +25,4 @@ func (h *clusterHandler) ServeHTTP(w http.ResponseWriter,r *http.Request){
 
 func (s *Server) clusterHandler() http.Handler {
 	return &clusterHandler{s}
-}
+}*/

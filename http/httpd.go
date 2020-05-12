@@ -1,12 +1,10 @@
 package http
 
 import (
-	"log"
-	"net/http"
-	"silverDB/cluster"
+
 )
 
-type Server struct {
+/*type Server struct {
 	cluster.Storage
 	cluster.Node
 }
@@ -21,4 +19,4 @@ func (s *Server) Listen(addr string){
 
 func New(c cluster.Storage,n cluster.Node) *Server{
 	return &Server{c,n}
-}
+}*/

@@ -2,8 +2,9 @@ package storage
 
 import (
 	"log"
-	"silverDB/config"
-	"silverDB/node/point"
+	"silver/config"
+	"silver/metastore"
+	"silver/node/point"
 	"sync"
 	"time"
 )
@@ -41,7 +42,7 @@ type walNodeLinked struct {
 }
 
 type WalBuffer struct {
-	mutex sync.Mutex
+	mu sync.Mutex
 	buffer map[string]*walNodeLinked
 	ttl time.Duration
 	flushCount int
@@ -100,20 +101,14 @@ func newWalData(wp *point.WritePoint,tagKv string,data []byte,dataLen int,timest
 }
 
 
-func NewWalBuffer(config config.NodeConfig)  *WalBuffer {
+func NewWalBuffer(config config.NodeConfig,listener1 *metastore.Listener,register1 *metastore.Register)  *WalBuffer {
 	wb:=&WalBuffer{
-		mutex:  sync.Mutex{},
+		mu:  sync.Mutex{},
 		buffer: make(map[string]*walNodeLinked,0),
 		ttl: time.Duration(config.Wal.TTL) * time.Second,
 		flushCount: 0,
 		listNum: config.Wal.Nums,
-		Wal:NewWal(config.Wal.WalData,
-			config.NodeData,
-			config.IndexData,
-			config.Compressed,
-			config.Flush.Timeout,
-			config.Wal.Size,
-			config.Flush.Count),
+		Wal:NewWal(config,listener1,register1),
     }
 	go wb.flush()
 	return wb
@@ -155,11 +150,10 @@ func (wb *WalBuffer) flush() {
 
 
 
-func(wb *WalBuffer) WriteData(wp *point.WritePoint,tagKv string,data []byte,dataLen int,timestamp,id int64) error {
+func(wb *WalBuffer) WriteData(wp *point.WritePoint,tagKv string,data []byte,dataLen int,timestamp,id int64) {
     node:=wb.getWalNode(wp.DataBase,wp.TableName)
 	node.wd.dataList=append(node.wd.dataList,newWalData(wp,tagKv,data,dataLen,timestamp,id))
 	node.wd.currentNum=node.wd.currentNum+1
-	return nil
 }
 
 

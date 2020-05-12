@@ -15,12 +15,19 @@ type Node interface {
 	Members() []string
 	Addr() string
 	Status() bool
+	StorageAddr() string
 }
 
 type node struct {
 	*consistent.Consistent
 	addr string
 	l *memberlist.Memberlist
+	storageAddr string
+}
+
+
+func (n *node) StorageAddr() string {
+	return n.storageAddr
 }
 
 
@@ -60,7 +67,7 @@ func (p *pingNode) String() string {
 	return p.ip
 }
 
-func NewNode(addr string,cluster string) (Node,error) {
+func NewNode(addr string,cluster string,storageAddr string) (Node,error) {
 	p1:=strings.Split(addr,":")[1]
 	p, err := strconv.Atoi(p1)
 	LocalConf:=memberlist.DefaultLocalConfig()
@@ -102,5 +109,5 @@ func NewNode(addr string,cluster string) (Node,error) {
 			time.Sleep(time.Second)
 		}
 	}()
-	return &node{circle,addr,l},nil
+	return &node{circle,addr,l,storageAddr},nil
 }
