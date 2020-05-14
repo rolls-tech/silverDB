@@ -3,22 +3,23 @@ nodeAddr:
   httpAddr: "127.0.0.1:12345"
   cluAddr: "127.0.0.1:7947"
   tcpAddr: "127.0.0.1:12346"
-nodeData: ["D:\\dev\\silver\\testdata1\\","D:\\dev\\silver\\testdata2\\","D:\\dev\\silver\\testdata3\\"]
-indexData: ["D:\\dev\\silver\\testdata1\\","D:\\dev\\silver\\testdata2\\","D:\\dev\\silver\\testdata3\\"]
+dataDir: ["D:\\dev\\silver\\testdata1\\","D:\\dev\\silver\\testdata2\\"]
+indexDir: ["D:\\dev\\silver\\index1\\"]
 wal:
-  walData: "D:\\dev\\silver\\wal1\\"
+  walDir: "D:\\dev\\silver\\wal1\\"
   ttl: 1
-  nums: 5
+  nodeNums: 5
+  listNums: 100
   size: 100
 flush:
   count: 5000
-  timeout: 3
+  ttl: 3
 heatbeat:
   timeout: 3
   tick: 3
 metastore:
-  nodeAddr: ["127.0.0.1:2379","127.0.0.1:2379","127.0.0.1:2379"]
-  nodePath: "/silver/metaData/"
+  metaAddr: ["127.0.0.1:2379","127.0.0.1:2379","127.0.0.1:2379"]
+  nodePrefix: "/silver/metaData/"
   timeout : 10
   heartbeat: 5
 discovery:

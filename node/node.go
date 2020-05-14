@@ -93,20 +93,18 @@ func NewNode(addr string,cluster string,storageAddr string) (Node,error) {
 	circle.NumberOfReplicas=256
 	go func(){
 		for {
+	       time.Sleep(time.Second)
 			m:=l.Members()
-			nodes:=make([]string,len(m))
-			for i,node:=range m {
+			for _,node:=range m {
 				p:=&pingNode {
 					proto: "udp",
 					ip:    node.Name,
 				}
 				_,e:=l.Ping(node.Name,p)
-				if e==nil {
-					nodes[i]=node.Name
+				if e == nil {
+					circle.Add(node.Name)
 				}
 			}
-			circle.Set(nodes)
-			time.Sleep(time.Second)
 		}
 	}()
 	return &node{circle,addr,l,storageAddr},nil

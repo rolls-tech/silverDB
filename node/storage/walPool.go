@@ -3,7 +3,6 @@ package storage
 import (
 	"log"
 	"silver/config"
-	"silver/metastore"
 	"silver/node/point"
 	"sync"
 	"time"
@@ -17,10 +16,8 @@ type walNode struct {
 }
 
 type walDataList struct {
-	dataList []*walData
-	listNum int
-	currentNum int
-
+	dataList        []*walData
+	currentListNum  int
 }
 
 type walData struct {
@@ -35,10 +32,7 @@ type walData struct {
 
 type walNodeLinked struct {
 	head *walNode
-	num int
-	ttl time.Duration
-	flushCount int
-	listNum int
+	currentNodeNums int
 }
 
 type WalBuffer struct {
@@ -46,41 +40,34 @@ type WalBuffer struct {
 	buffer map[string]*walNodeLinked
 	ttl time.Duration
 	flushCount int
-	listNum int
+	nodeNums int
+	listNums int
 	*Wal
 }
 
 
-func newWalDataList(listNum int)  *walDataList {
-	var num int
-	if listNum !=0 {
-		num = listNum
-	}else {
-		num=20
-	}
+func newWalDataList()  *walDataList {
 	return &walDataList{
-		dataList:   make([]*walData,num),
-		listNum:    num,
-		currentNum: 0,
+		dataList:   make([]*walData,0),
+		currentListNum:   0,
 	}
 }
 
 
-func newWalNode(listNum int,created time.Time) *walNode {
+func newWalNode() *walNode {
 	return  &walNode {
 		mutex:      sync.RWMutex{},
 		next:       nil,
-		created:    created,
-		wd:   newWalDataList(listNum),
+		created:    time.Now(),
+		wd:   newWalDataList(),
 	}
 
 }
 
 func initWalNodeLinked() *walNodeLinked {
-	created:=time.Now()
 	wl:=&walNodeLinked {
-		head: newWalNode(0,created),
-		num:  0,
+		head: newWalNode(),
+		currentNodeNums:  0,
 	}
 	wl.head.next=nil
 	return wl
@@ -101,14 +88,15 @@ func newWalData(wp *point.WritePoint,tagKv string,data []byte,dataLen int,timest
 }
 
 
-func NewWalBuffer(config config.NodeConfig,listener1 *metastore.Listener,register1 *metastore.Register)  *WalBuffer {
+func NewWalBuffer(config config.NodeConfig)  *WalBuffer {
 	wb:=&WalBuffer{
 		mu:  sync.Mutex{},
 		buffer: make(map[string]*walNodeLinked,0),
 		ttl: time.Duration(config.Wal.TTL) * time.Second,
 		flushCount: 0,
-		listNum: config.Wal.Nums,
-		Wal:NewWal(config,listener1,register1),
+		nodeNums:config.Wal.NodeNums,
+		listNums:config.Wal.ListNums,
+		Wal:NewWal(config),
     }
 	go wb.flush()
 	return wb
@@ -119,29 +107,29 @@ func NewWalBuffer(config config.NodeConfig,listener1 *metastore.Listener,registe
 func (wb *WalBuffer) flush() {
 	for {
 		time.Sleep(wb.ttl)
-		if wb.buffer != nil {
+		if wb.buffer != nil && len(wb.buffer) != 0 {
 			for _,wn:=range wb.buffer {
-				current:=wn.head
-				if current.next == nil {
-					return
-				}
-				for current.next != nil {
-				   current=current.next
+				prev:=wn.head
+				for prev.next != nil {
+				   current:= prev.next
 				   if current.created.Add(wb.ttl).Before(time.Now()) {
-				   	   if current.wd.currentNum > 0 {
-				   	   	   for _,data:=range current.wd.dataList {
-				   	   	   	   if data !=nil {
-								   e:=wb.writeData(data)
-								   if  e != nil {
-									   log.Println("write wal data failed",e)
-									   return
-								   }
-								   current.wd.dataList=current.wd.dataList[1:]
-								   current.wd.currentNum=current.wd.currentNum-1
+				   	     for _,data:=range current.wd.dataList {
+				   	   	   	if data != nil {
+							   e:=wb.writeData(data)
+							   if  e != nil {
+								 log.Println("write wal data failed",e)
+							   }
+							   current.wd.dataList=current.wd.dataList[1:]
+							   current.wd.currentListNum=current.wd.currentListNum-1
 							   }
 						   }
-					   }
 				   }
+				   //node回收
+				  /* if current.wd.currentListNum == 0 && len(current.wd.dataList) == 0 {
+				   	      prev.next=current.next
+					      return
+				   }*/
+				   prev=prev.next
 				}
 			}
 		}
@@ -153,29 +141,28 @@ func (wb *WalBuffer) flush() {
 func(wb *WalBuffer) WriteData(wp *point.WritePoint,tagKv string,data []byte,dataLen int,timestamp,id int64) {
     node:=wb.getWalNode(wp.DataBase,wp.TableName)
 	node.wd.dataList=append(node.wd.dataList,newWalData(wp,tagKv,data,dataLen,timestamp,id))
-	node.wd.currentNum=node.wd.currentNum+1
+	node.wd.currentListNum=node.wd.currentListNum+1
 }
 
 
 func (wb *WalBuffer) getWalNode(dataBase,tableName string) *walNode {
 	var node *walNode
 	var newNode *walNode
-	wb.mu.Lock()
+	wb.mutex.RLock()
 	wn,ok:=wb.buffer[dataBase+tableName]
-	wb.mu.Unlock()
-	created:=time.Now()
+	wb.mutex.RUnlock()
     if ok {
         node=wb.sequenceTraversal(wn)
-        if node.wd.currentNum < wb.listNum {
+        if node.wd.currentListNum < wb.listNums {
 			return node
 		}
-        newNode=newWalNode(wb.listNum,created)
+        newNode=newWalNode()
         wn.appendLinkedNode(newNode)
 		node=wb.sequenceTraversal(wn)
         return node
 	}
     wn=initWalNodeLinked()
-    newNode=newWalNode(wb.listNum,created)
+    newNode=newWalNode()
     wn.appendLinkedNode(newNode)
 	node=wb.sequenceTraversal(wn)
 	wb.mutex.Lock()
@@ -187,11 +174,6 @@ func (wb *WalBuffer) getWalNode(dataBase,tableName string) *walNode {
 
 func (wb *WalBuffer) sequenceTraversal(wn *walNodeLinked) *walNode {
 	current:=wn.head
-	if current.next == nil {
-		created:=time.Now()
-		current.next=newWalNode(wb.listNum,created)
-		return current.next
-	}
 	for current.next != nil {
 		current=current.next
 	}
@@ -202,7 +184,8 @@ func (wb *WalBuffer) sequenceTraversal(wn *walNodeLinked) *walNode {
 func (wd *walNodeLinked) appendLinkedNode(node *walNode) {
 	if wd.head.next == nil {
 		wd.head.next=node
-		wd.num=wd.num+1
+		wd.currentNodeNums=wd.currentNodeNums+1
+		return
 	}
 	current:=wd.head
 	for current.next != nil {
@@ -210,6 +193,6 @@ func (wd *walNodeLinked) appendLinkedNode(node *walNode) {
 	}
 	current.next=node
 	node.next=nil
-	wd.num=wd.num+1
+	wd.currentNodeNums=wd.currentNodeNums+1
 }
 

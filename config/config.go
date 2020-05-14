@@ -9,8 +9,8 @@ import (
 type NodeConfig struct {
 	NodeName string  `yaml:"nodeName"`
 	NodeAddr NodeAddr `yaml:"nodeAddr"`
-	NodeData []string  `yaml:"nodeData,flow"`
-	IndexData []string `yaml:"indexData,flow"`
+	DataDir []string  `yaml:"dataDir,flow"`
+	IndexDir []string `yaml:"indexDir,flow"`
 	Wal Wal  `yaml:"wal"`
 	Flush Flush `yaml:"flush"`
 	HeatBeat HeatBeat `yaml:"heatbeat"`
@@ -21,10 +21,11 @@ type NodeConfig struct {
 }
 
 type Wal struct {
-	WalData string  `yaml:"walData"`
+	WalDir string  `yaml:"walDir"`
 	TTL int64 `yaml:"ttl"`
-	Nums int  `yaml:"nums"`
-	Size int64  `yaml:"size"`
+	NodeNums int  `yaml:"nodeNums"`
+	ListNums int  `yaml:"listNums"`
+	Size int64 `yaml:"size"`
 }
 
 
@@ -36,7 +37,7 @@ type NodeAddr struct {
 
 type Flush struct {
 	Count int `yaml:"count"`
-	Timeout int64 `yaml:"timeout"`
+	TTL int64 `yaml:"ttl"`
 }
 
 type HeatBeat struct {
@@ -45,8 +46,8 @@ type HeatBeat struct {
 }
 
 type MetaStore struct {
-	NodeAddr []string `yaml:"nodeAddr,flow"`
-	NodePath string `yaml:"nodePath"`
+	MetaAddr []string `yaml:"metaAddr,flow"`
+	NodePrefix string `yaml:"nodePrefix"`
 	Timeout int64 `yaml:"timeout"`
 	HeartBeat int64 `yaml:"heartbeat"`
 }

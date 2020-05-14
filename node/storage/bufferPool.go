@@ -176,6 +176,8 @@ func (b *DataBuffer) ReadData(dataBase,tableName,tagKv,fieldKey string,startTime
 
 
 func (b *DataBuffer) writeBuffer(wp *point.WritePoint, tagKv string) error {
+	b.mutex.Lock()
+	b.mutex.Unlock()
 	var e error
 	if wp != nil {
 		seriesKey := wp.DataBase + wp.TableName + tagKv
@@ -183,6 +185,7 @@ func (b *DataBuffer) writeBuffer(wp *point.WritePoint, tagKv string) error {
 		var node *dataNode
 		if ok {
 			node = b.sequenceTraversal(dn)
+			node.created=time.Now()
 		} else {
 			created := time.Now()
 			dn = initDataNodeLinked(wp.DataBase, wp.TableName, tagKv, wp.Tags)
@@ -240,9 +243,8 @@ func NewDataBuffer(config config.NodeConfig, listener1 *metastore.Listener, regi
 		snapshotSize: 0,
 		snapshotting: false,
 		lastSnapshot: time.Time{},
-		ttl:          time.Duration(config.Flush.Timeout) * time.Second,
-		kv:           NewKv(config.NodeData, config.Compressed, 24*time.Hour),
-		//index:        NewIndex(config.Flush.Timeout, config.IndexData),
+		ttl:          time.Duration(config.Flush.TTL) * time.Second,
+		kv:           NewKv(config.DataDir, config.Compressed, 24*time.Hour),
 		listener:     listener1,
 		register:     register1,
 	}
@@ -255,52 +257,46 @@ func NewDataBuffer(config config.NodeConfig, listener1 *metastore.Listener, regi
 func (b *DataBuffer) flush(flushCount int) {
 	for {
 		time.Sleep(b.ttl)
-		if b.buffer != nil {
-			b.snapshot = b
-			b.snapshotting = true
+		if len(b.buffer) != 0 && b.snapshotting == false {
+		/*	b.snapshot = b
+			b.snapshotting=true
 			b.lastSnapshot = time.Now()
-			for seriesKey, dn := range b.snapshot.buffer {
+			b.snapshot.mutex.Lock()
+			temp:=b.snapshot.buffer*/
+			for seriesKey, dn := range b.buffer {
 				if dn.count >= flushCount {
-					go func(seriesKey string, dn *dataNodeLinked) {
-						current := dn.head
-						for current.next != nil {
-							for _, metric := range current.next.metrics {
-								b.snapshot.kv.writeData(dn.dataBase, dn.tableName, dn.tagKv, dn.tags, metric)
-							}
-							current = current.next
+					current := dn.head
+					for current.next != nil {
+						for _, metric := range current.next.metrics {
+							b.kv.writeData(dn.dataBase, dn.tableName, dn.tagKv, dn.tags, metric)
 						}
-						b.mutex.Lock()
-						delete(b.buffer, seriesKey)
-						b.count -= dn.count
-						b.size -= dn.size
-						b.mutex.Unlock()
-					}(seriesKey, dn)
-					b.snapshotting = false
+						current = current.next
+					}
+					b.mutex.Lock()
+					delete(b.buffer, seriesKey)
+					b.count -= dn.count
+					b.size -= dn.size
+					b.mutex.Unlock()
 				}
-				if dn.head != nil {
+				/*if dn.head != nil {
 					current:=dn.head
 					for current.next != nil {
 					   if current.next.created.Add(b.ttl).Before(time.Now()) {
 						   for _, metric := range current.next.metrics {
 							   b.snapshot.kv.writeData(dn.dataBase, dn.tableName, dn.tagKv, dn.tags, metric)
 						   }
-						   b.mutex.Lock()
 						   b.count -= current.next.count
 						   b.size -= current.size
-						   b.mutex.Unlock()
-						   prev:=current
-						   next:=current.next.next
-						   prev.next=next
 					    }
 					    current = current.next
-						b.mutex.Lock()
-						delete(b.buffer, seriesKey)
 						b.count -= dn.count
 						b.size -= dn.size
-						b.mutex.Unlock()
 					}
-				}
+				}*/
 			}
+			/*b.snapshotting = false
+			b.snapshot.mutex.Unlock()*/
+
 		}
 	}
 }

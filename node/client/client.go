@@ -30,37 +30,35 @@ type client struct {
 func (tc *tcpClient) ExecuteWrite(writeList []*point.WritePoint) {
 	c:=newClient(tc.serverAddr)
 	for _,wp:=range writeList {
-		 tc.run(c,wp)
+		  tc.run(c,wp)
 	}
 }
 
 func newClient(server string) *client {
-	c, e := net.Dial("tcp", server)
+	conn, e := net.Dial("tcp", server)
 	if e != nil {
 		panic(e)
 	}
-	r := bufio.NewReader(c)
-	return &client{c, r}
+	request := bufio.NewReader(conn)
+	return &client{conn, request}
 }
 
 func(tc *tcpClient) run(c *client,wp *point.WritePoint) {
-	c.writeRequest(wp)
-	c.processWriteResponse(wp)
+	  c.writeRequest(wp)
+	  c.processWriteResponse(wp)
 }
 
 func(c *client) writeRequest(wp *point.WritePoint) {
 	data,e:=proto.Marshal(wp)
 	if e !=nil {
-		log.Println(e.Error())
-		return
+		log.Println(e)
 	}
 	dLen:=len(data)
-	_, e = c.Write([]byte(fmt.Sprintf("S%d,%s",dLen,data)))
-	if e != nil {
+	_,e=c.Write([]byte(fmt.Sprintf("S%d,%s",dLen,data)))
+	if e !=nil {
 		log.Println("client send write request failed !",e)
 	}
 }
-
 
 func (c *client) processWriteResponse(wp *point.WritePoint) {
 	op, e := c.r.ReadByte()
@@ -80,51 +78,22 @@ func (c *client) processWriteResponse(wp *point.WritePoint) {
 		if v != nil {
 			/*redirect := strings.Split(string(v), ":")
 			addr := redirect[0]*/
-			c:=newClient("127.0.0.1:12348")
-			c.writeRequest(wp)
-			c.processWriteResponse(wp)
-			return
+			rc:=newClient("127.0.0.1:12348")
+			rc.writeRequest(wp)
+			rc.processWriteResponse(wp)
 		}
+		return
 	case 'V':
 		v, e := c.recvResponse()
 		if e != nil {
-			log.Println("client write response failed !", e)
-			return
+			log.Println("client write failed !", e)
 		}
 		if strings.Compare(string(v),"f") == 0 {
 			log.Println("client write failed !")
-			return
 		}
+		return
 	}
-	return
 }
-
-
-func (c *client) recvResponse() ([]byte, error) {
-	l1 := readLen(c.r)
-	vLen, e := strconv.Atoi(l1)
-	if vLen == 0 {
-		return nil,nil
-	}
-	value := make([]byte, vLen)
-	_, e = io.ReadFull(c.r, value)
-	if e != nil {
-		return nil,e
-	}
-	return value,nil
-}
-
-func readLen(r *bufio.Reader) string {
-	tmp, e := r.ReadString(',')
-	if tmp == "" {
-		return ""
-	}
-	if e != nil {
-		return ""
-	}
-	return strings.ReplaceAll(tmp, ",", "")
-}
-
 
 func (tc *tcpClient) ExecuteRead(rp *point.ReadPoint) {
 	c:=newClient(tc.serverAddr)
@@ -171,4 +140,29 @@ func (c *client) processReadResponse() {
 		log.Println(data)
 	}
 	return
+}
+
+func (c *client) recvResponse() ([]byte, error) {
+	l1 := readLen(c.r)
+	vLen, e := strconv.Atoi(l1)
+	if vLen == 0 {
+		return nil,nil
+	}
+	value := make([]byte, vLen)
+	_, e = io.ReadFull(c.r, value)
+	if e != nil {
+		return nil,e
+	}
+	return value,nil
+}
+
+func readLen(r *bufio.Reader) string {
+	tmp, e := r.ReadString(',')
+	if tmp == "" {
+		return ""
+	}
+	if e != nil {
+		return ""
+	}
+	return strings.ReplaceAll(tmp, ",", "")
 }

@@ -5,7 +5,6 @@ import (
 	"github.com/boltdb/bolt"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"os"
 	"silver/node/point"
 	"silver/utils"
@@ -40,12 +39,12 @@ type indexNodeLinked struct {
 
 type indexKv struct {
 	indexDir []string
-	mu sync.Mutex
+	mu sync.RWMutex
 }
 
 
 type Index struct {
-	mu sync.Mutex
+	mu sync.RWMutex
 	writeData map[string]*indexNodeLinked
 	readData map[string]*indexNode
 	ttl time.Duration
@@ -57,7 +56,7 @@ type Index struct {
 
 func NewIndex(ttl int64,indexDir []string) *Index {
 	index:=&Index{
-		mu:    sync.Mutex{},
+		mu:    sync.RWMutex{},
 		readData:  loadIndex(indexDir),
 		writeData: make(map[string]*indexNodeLinked,0),
 		ttl:   time.Duration(ttl) * time.Second,
@@ -84,7 +83,7 @@ func newIndexKv(indexDir []string) *indexKv {
 	}
 	return &indexKv{
 		indexDir: indexDir,
-		mu:       sync.Mutex{},
+		mu:       sync.RWMutex{},
 	}
 }
 
@@ -145,7 +144,9 @@ func (n *Index) generateIndexNode(wp *point.WritePoint,sortTagKv string) *indexN
 
 
 func (n *Index) updateIndexData(wp *point.WritePoint,sortTagKv string) error {
+	n.mu.RLock()
 	node,ok:=n.writeData[wp.DataBase+wp.TableName]
+	n.mu.RUnlock()
 	if !ok {
 		node=&indexNodeLinked{head:newIndexNode(wp.DataBase,wp.TableName)}
 		indexNode:=n.generateIndexNode(wp,sortTagKv)
@@ -203,9 +204,9 @@ func (n *Index) updateMemData(wp *point.WritePoint,sortTagKv string) error {
 					}
 				} else {
 					node.indexTag[tag]=newIndexTags()
-					indexTags,_:=node.indexTag[tag]
-					metric,_:=indexTags.tags[sortTagKv]
-					if wp.Value !=nil {
+					node.indexTag[tag].tags[sortTagKv]=newIndexMetric()
+					metric:=node.indexTag[tag].tags[sortTagKv]
+					if wp.Value != nil {
 						for key,_:=range wp.Value {
 							metric.metric[key]=true
 						}
@@ -289,17 +290,7 @@ func (n *Index) writeIndex(wp *point.WritePoint,sortTagKv string) error {
 }
 
 func (n *Index) writeIndexKv(node *indexNode) error {
-	rand.Seed(time.Now().UnixNano())
-	i:= rand.Intn(len(n.indexKv.indexDir))
-	indexFile:=n.indexKv.indexDir[i]+node.database+"_index.db"
-	ok:=utils.CheckFileIsExist(indexFile)
-	if !ok {
-		db:=openDB(indexFile)
-		e:=db.Close()
-		if e!=nil {
-			log.Println("create index File failed !",indexFile,e)
-		}
-	}
+	indexFile:=n.indexKv.indexDir[0]+node.database+"_index.db"
 	db:=openDB(indexFile)
 	defer db.Close()
 	if err := db.Batch(func(tx *bolt.Tx) error {
@@ -383,8 +374,10 @@ func (n *Index) flush() {
 	for {
 		time.Sleep(n.ttl)
 		if n.writeData !=nil {
+		var wg sync.WaitGroup
 		for _,nodeLink:=range n.writeData {
-			go func(nodeLink *indexNodeLinked) {
+			wg.Add(1)
+			go func(nodeLink *indexNodeLinked,wg *sync.WaitGroup) {
 				current:=nodeLink.head
 				head:=nodeLink.head
 				current=head.next
@@ -399,8 +392,10 @@ func (n *Index) flush() {
 					  head.next=current
 				  }
 				}
-			}(nodeLink)
+				wg.Done()
+			}(nodeLink,&wg)
 		  }
+		wg.Wait()
 		}
 	}
 }

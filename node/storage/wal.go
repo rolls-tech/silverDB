@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"silver/config"
-	"silver/metastore"
 	"silver/utils"
 	"strconv"
 	"sync"
@@ -19,10 +18,19 @@ type Wal struct {
 	maxSize int64
 }
 
-func NewWal(config config.NodeConfig,listener1 *metastore.Listener,register1 *metastore.Register) *Wal {
-    return &Wal{
+func NewWal(config config.NodeConfig) *Wal {
+	if  config.Wal.WalDir != "" {
+		ok:=utils.CheckFileIsExist(config.Wal.WalDir)
+			if !ok {
+				e:=os.MkdirAll(config.Wal.WalDir,os.ModePerm)
+				if e !=nil {
+					log.Println("failed create wal dir",config.Wal.WalDir,e)
+				}
+		}
+	}
+    return &Wal {
 		mutex:   sync.RWMutex{},
-		walDir:  config.Wal.WalData,
+		walDir:  config.Wal.WalDir,
 		maxSize: config.Wal.Size,
 	}
 }
@@ -82,12 +90,12 @@ func (w *Wal) writeWalFile(walFile string,getWp []byte) error {
 	defer f.Close()
 	w.mutex.Lock()
 	n,e:=f.Write(getWp)
-	w.mutex.Unlock()
-	log.Printf(walFile+" write %d kb",n/1024)
+	log.Println("write wal data size: ", n/1024,"kb")
 	if e !=nil {
 		log.Println("write wal file: "+walFile+" failed",e)
 		return e
 	}
+	w.mutex.Unlock()
 	e=f.Sync()
 	return e
 }
@@ -121,6 +129,10 @@ func (w *Wal) getWalFile() (string,int) {
 		}
 		if len(fileList) == 0 {
 			walFile:=w.walDir+"_1.wal"
+			_,e:=os.Create(walFile)
+			if e !=nil {
+				log.Println(e,walFile)
+			}
 			return walFile,1
 		}
 		walFile:=w.walDir+"_"+strconv.Itoa(len(fileList))+".wal"

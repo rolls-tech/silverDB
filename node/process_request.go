@@ -35,19 +35,14 @@ func (s *Server) resolveWriteRequest(conn net.Conn, request *bufio.Reader) (*poi
 	seriesKey:=dataBase+tableName+tagKv
 	addr, ok := s.ShouldProcess(seriesKey)
 	if !ok {
-		log.Println(seriesKey)
 		if addr !="" {
 			aLen:= len(addr)
-			log.Println("process_request "+addr)
 			_, e := conn.Write([]byte(fmt.Sprintf("R%d,%s",aLen,addr)))
 			if e != nil {
-				log.Println(e.Error())
+				return wp, tagKv, buf, e
 			}
-			return wp,tagKv,buf,errors.New("redirect " + addr)
-		} else {
-			log.Println("redirect addr is nil")
-			return wp,tagKv,buf,nil
 		}
+		return wp,tagKv,buf,errors.New("redirect addr is "+addr)
 	}
 	return wp,tagKv,buf,nil
 }
@@ -123,6 +118,7 @@ func (s *Server) writePoint(request *bufio.Reader) (*point.WritePoint,[]byte,err
 	l1,e:= readLen(request)
 	if e !=nil {
 		log.Println("not support message format !",e.Error())
+		return nil,nil,e
 	}
 	dLen, e := strconv.Atoi(l1)
 	buf := make([]byte,dLen)

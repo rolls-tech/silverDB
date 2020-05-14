@@ -26,6 +26,17 @@ type kv struct {
 }
 
 func NewKv(dataDir []string,isCompress bool,duration time.Duration) *kv {
+	if len(dataDir) > 0 {
+		for _,dir:=range dataDir {
+			ok:=utils.CheckFileIsExist(dir)
+			if !ok {
+				e:=os.MkdirAll(dir,os.ModePerm)
+				if e !=nil {
+					log.Println("failed create data dir",dir,e)
+				}
+			}
+		}
+	}
 	return &kv{
 		mutex:        sync.RWMutex{},
 		dataDir:      dataDir,
