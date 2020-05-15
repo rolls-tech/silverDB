@@ -10,10 +10,12 @@ import (
 	"silver/node/point"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type tcpClient struct {
 	serverAddr string
+	mu sync.RWMutex
 }
 
 
@@ -44,9 +46,10 @@ func newClient(server string) *client {
 }
 
 func(tc *tcpClient) run(c *client,wp *point.WritePoint) {
-	  c.writeRequest(wp)
-	  c.processWriteResponse(wp)
+	 c.writeRequest(wp)
+	 c.processWriteResponse(wp)
 }
+
 
 func(c *client) writeRequest(wp *point.WritePoint) {
 	data,e:=proto.Marshal(wp)
@@ -60,38 +63,62 @@ func(c *client) writeRequest(wp *point.WritePoint) {
 	}
 }
 
+
+func (c *client) proxyWriteRequest(data []byte) {
+	dLen:=len(data)
+	_,e:=c.Write([]byte(fmt.Sprintf("S%d,%s",dLen,data)))
+	if e !=nil {
+		log.Println("proxy client send write request failed !",e)
+	}
+}
+
+func (c *client) processProxyWriteResponse() bool {
+	op,e:=c.r.ReadByte()
+	if e != nil {
+		if e != io.EOF {
+			log.Println("close connection due to error:", e)
+		}
+		return false
+	}
+	if op == 'V' {
+		v, e := c.recvResponse()
+		if e != nil {
+			log.Println("proxy client write response failed !", e)
+			return false
+		}
+		if strings.Compare(string(v),"f") == 0 {
+			log.Println("client write request failed !")
+			return false
+		}
+		return true
+
+	}
+	return false
+}
+
+
+func (tc *tcpClient) ExecuteProxyWrite(data []byte) bool {
+	c:=newClient(tc.serverAddr)
+	c.proxyWriteRequest(data)
+	return c.processProxyWriteResponse()
+}
+
 func (c *client) processWriteResponse(wp *point.WritePoint) {
-	op, e := c.r.ReadByte()
+	op,e:=c.r.ReadByte()
 	if e != nil {
 		if e != io.EOF {
 			log.Println("close connection due to error:", e)
 		}
 		return
 	}
-	switch op {
-	case 'R':
+	if op == 'V' {
 		v, e := c.recvResponse()
 		if e != nil {
-			log.Println("client redirect addr failed !", e)
-			return
-		}
-		if v != nil {
-			/*redirect := strings.Split(string(v), ":")
-			addr := redirect[0]*/
-			rc:=newClient("127.0.0.1:12348")
-			rc.writeRequest(wp)
-			rc.processWriteResponse(wp)
-		}
-		return
-	case 'V':
-		v, e := c.recvResponse()
-		if e != nil {
-			log.Println("client write failed !", e)
+			log.Println("proxy client write response failed !", e)
 		}
 		if strings.Compare(string(v),"f") == 0 {
-			log.Println("client write failed !")
+			log.Println("client write request failed !")
 		}
-		return
 	}
 }
 

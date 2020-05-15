@@ -48,6 +48,7 @@ type HeatBeat struct {
 type MetaStore struct {
 	MetaAddr []string `yaml:"metaAddr,flow"`
 	NodePrefix string `yaml:"nodePrefix"`
+	MetaPrefix string `yaml:"metaPrefix"`
 	Timeout int64 `yaml:"timeout"`
 	HeartBeat int64 `yaml:"heartbeat"`
 }

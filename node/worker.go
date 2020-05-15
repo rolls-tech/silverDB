@@ -25,6 +25,7 @@ func (s *Server) Listen(addr string) {
 		panic(e)
 	}
 	go s.metaDataService()
+	go s.nodeDataService()
 	for {
 		c, e := l.Accept()
 		if e != nil {
@@ -41,7 +42,7 @@ func NewWorker(storage Storage, node Node, listener1 *metastore.Listener,chanSiz
 
 func (s *Server) process(conn net.Conn) {
 	    request := bufio.NewReader(conn)
-	    writeResultCh:=make(chan chan bool,5000)
+	    writeResultCh:=make(chan chan bool,100)
 	    readResultCh:=make(chan chan *point.ReadPoint,0)
 	    defer close(writeResultCh)
 	    defer close(readResultCh)
@@ -51,7 +52,7 @@ func (s *Server) process(conn net.Conn) {
 			op, e := request.ReadByte()
 			if e != nil {
 				if e != io.EOF {
-					log.Println("close connection due to error: +++++++++++++++ ", e)
+					log.Println("close connection due to error: ", e)
 				}
 				return
 			}
@@ -61,11 +62,11 @@ func (s *Server) process(conn net.Conn) {
 				log.Println("D")
 			}else if op == 'G' {
 				e=s.readRequest(readResultCh,conn,request)
-				if e !=nil {
-					log.Println(s.Addr() + "read request failed ",e)
-				}
 			} else if op == 'P' {
 				e=s.proxyRequest(readResultCh,conn,request)
+			}else {
+				log.Println("unsupported operate type ",string(op))
+				return
 			}
 		}
 }
@@ -74,21 +75,22 @@ func (s *Server) process(conn net.Conn) {
 func (s *Server) writeRequest(ch chan chan bool,conn net.Conn, request *bufio.Reader) {
 	    c:=make(chan bool,0)
 	    ch <- c
-	    wp,tagKv,buf,e:=s.resolveWriteRequest(conn,request)
+	    wp,tagKv,buf,e:=s.resolveWriteRequest(conn,request,c)
 	    if e != nil {
 	    	log.Println(e)
 			return
 		}
 	    if wp != nil  {
-				e=s.WriteTsData(wp,tagKv,buf,len(buf),time.Now().Unix(),0)
-				if e != nil {
-					log.Println(s.Addr()+ " write data failed !" ,e)
-					c <- false
-				} else {
-					c <- true
-				}
+	    	    go func() {
+					e=s.WriteTsData(wp,tagKv,buf,len(buf),time.Now().Unix(),0)
+					if e != nil {
+						log.Println(s.Addr()+ " write data failed !" ,e)
+						c <- false
+					} else {
+						c <- true
+					}
+				}()
 		}
-	    return
 }
 
 func (s *Server) readRequest(ch chan chan *point.ReadPoint,conn net.Conn, request *bufio.Reader) error {

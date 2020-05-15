@@ -13,10 +13,12 @@ type Listener struct {
 	client *clientv3.Client
 	LocalMeta map[string]map[string]bool
 	metaPath string
+	nodePath string
+	AddrMap map[string]string
 	mu sync.Mutex
 }
 
-func NewListener(metaAddr []string,timeout int64,metaPath string) (*Listener,error) {
+func NewListener(metaAddr []string,timeout int64,metaPath string,nodePath string) (*Listener,error) {
 	conf :=clientv3.Config{
 		Endpoints:   metaAddr,
 		DialTimeout: time.Duration(timeout) * time.Second,
@@ -26,6 +28,8 @@ func NewListener(metaAddr []string,timeout int64,metaPath string) (*Listener,err
 			client: c,
 			LocalMeta:make(map[string]map[string]bool,0),
 			metaPath:metaPath,
+			nodePath:nodePath,
+			AddrMap: make(map[string]string,0),
 		}, nil
 	}else {
 		return nil,err
@@ -46,6 +50,48 @@ func (dc *Listener) MetaDataService() error {
 
 }
 
+func (dc *Listener) NodeDataService() error {
+	response, err := dc.client.Get(context.Background(), dc.nodePath, clientv3.WithPrefix())
+	if err != nil{
+		return err
+	}
+
+	dc.extractNodeAddr(response)
+
+	go dc.watcherNode(dc.nodePath)
+
+	return nil
+}
+
+func (dc *Listener) watcherNode(prefix string) {
+	watch := dc.client.Watch(context.Background(), prefix, clientv3.WithPrefix())
+	for wasp := range watch {
+		for _ ,ev:= range wasp.Events{
+			switch ev.Type{
+			case mvccpb.PUT:
+				dc.AddrMap[strings.Split(string(ev.Kv.Key),"/")[3]]=string(ev.Kv.Value)
+			case mvccpb.DELETE:
+				delete(dc.AddrMap,strings.Split(string(ev.Kv.Key),"/")[3])
+			}
+		}
+	}
+
+}
+
+func (dc *Listener) extractNodeAddr(response *clientv3.GetResponse) {
+	if response != nil && response.Kvs != nil {
+		for i := range response.Kvs {
+			if k :=response.Kvs[i].Key; k != nil {
+				cluster:=strings.Split(string(response.Kvs[i].Key),"/")[3]
+				storage:=string(response.Kvs[i].Value)
+				dc.AddrMap[cluster]=storage
+			}
+		}
+	}
+}
+
+
+
 func (dc *Listener) watcher(prefix string){
 	watch := dc.client.Watch(context.Background(), prefix, clientv3.WithPrefix())
 	for wasp := range watch {
@@ -58,7 +104,6 @@ func (dc *Listener) watcher(prefix string){
 			}
 		}
 	}
-
 }
 
 func (dc *Listener) extractAddr(response *clientv3.GetResponse) {

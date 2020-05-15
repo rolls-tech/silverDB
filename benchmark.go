@@ -21,7 +21,7 @@ func init() {
 	flag.StringVar(&value, "v", "v", "value")
 	flag.IntVar(&batchSize, "n", 5000, "number of point every pipeline")
 	flag.IntVar(&valueSize, "d", 1, "data size of SET/GET value in bytes")
-	flag.IntVar(&threads, "c", 1, "number of parallel connections")
+	flag.IntVar(&threads, "c", 10, "number of parallel connections")
 	flag.IntVar(&keyspaceLen, "r", 20, "keyspaceLen,use random keys from 0 to keyspaceLen-1")
 	flag.IntVar(&pipeLen, "P", 10, "pipeline length")
 	flag.Parse()
@@ -97,8 +97,8 @@ func main() {
 	res := &result{make([]statistic, 0)}
 	start := time.Now()
 	var wg sync.WaitGroup
-	wg.Add(threads)
 	for i := 0; i < threads; i++ {
+		wg.Add(1)
 		go pipelineRun(i,batchSize,pipeLen,res,&wg)
 	}
 	wg.Wait()

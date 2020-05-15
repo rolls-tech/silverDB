@@ -19,7 +19,8 @@ heatbeat:
  tick: 3
 metastore:
  metaAddr: ["127.0.0.1:2379","127.0.0.1:2379","127.0.0.1:2379"]
- nodePrefix: "/silver/metaData/"
+ metaPrefix: "/silver/metaData/"
+ nodePrefix: "/sliver/node/"
  timeout : 10
  heartbeat: 5
 discovery:

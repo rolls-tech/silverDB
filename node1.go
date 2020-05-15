@@ -18,25 +18,28 @@ func init() {
 func main() {
 
 	//元数据服务
-	listener1,e:= metastore.NewListener(c1.MetaStore.MetaAddr,c1.MetaStore.Timeout,c1.MetaStore.NodePrefix)
+	listener1,e:= metastore.NewListener(c1.MetaStore.MetaAddr,c1.MetaStore.Timeout,c1.MetaStore.MetaPrefix,c1.MetaStore.NodePrefix)
 	if e != nil {
 		log.Fatal(c1.NodeAddr.TcpAddr+" init discovery failed !",e)
 	}
 	//初始化注册元数据
 	metaStore1:= metastore.NewMetaStore(c1.DataDir,c1.NodeAddr.TcpAddr)
-	register1:= metastore.NewRegister(c1.MetaStore.NodePrefix,metaStore1.NodeAddr,
-		c1.MetaStore.MetaAddr,c1.MetaStore.Timeout,c1.MetaStore.HeartBeat)
+	register1:= metastore.NewRegister(c1.MetaStore,metaStore1.NodeAddr)
 	if metaStore1.MetaData != nil {
 		for db,tbMap:=range metaStore1.MetaData {
 			if tbMap !=nil {
 				for tb,_:=range tbMap {
-					e:=register1.PutNode(db,tb)
+					e:=register1.PutMata(db,tb)
 					if e !=nil {
 						log.Fatal("register metaStore data failed ! ",e)
 					}
 				}
 			}
 		}
+	}
+	e=register1.PutNode(c1.NodeAddr.CluAddr)
+	if e !=nil {
+		log.Fatal("register node info failed ! ",e)
 	}
 	node1,e:=node.NewNode(c1.NodeAddr.CluAddr,c1.NodeAddr.CluAddr,c1.NodeAddr.TcpAddr)
 	if e !=nil {

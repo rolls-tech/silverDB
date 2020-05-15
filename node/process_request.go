@@ -2,12 +2,12 @@ package node
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"io"
 	"log"
 	"net"
+	client2 "silver/node/client"
 	"silver/node/point"
 	"silver/utils"
 	"sort"
@@ -16,7 +16,7 @@ import (
 )
 
 
-func (s *Server) resolveWriteRequest(conn net.Conn, request *bufio.Reader) (*point.WritePoint,string,[]byte,error){
+func (s *Server) resolveWriteRequest(conn net.Conn, request *bufio.Reader,c chan bool) (*point.WritePoint,string,[]byte,error){
     wp,buf,e:=s.writePoint(request)
 	if e != nil {
 		return wp,"",buf,e
@@ -36,13 +36,19 @@ func (s *Server) resolveWriteRequest(conn net.Conn, request *bufio.Reader) (*poi
 	addr, ok := s.ShouldProcess(seriesKey)
 	if !ok {
 		if addr !="" {
-			aLen:= len(addr)
-			_, e := conn.Write([]byte(fmt.Sprintf("R%d,%s",aLen,addr)))
-			if e != nil {
-				return wp, tagKv, buf, e
+			if s.AddrMap !=nil {
+				storageAddr:=s.AddrMap[addr]
+				client:=client2.NewClient(storageAddr)
+				status:=client.ExecuteProxyWrite(buf)
+				log.Println("execute write proxy request ! ", storageAddr)
+				if status {
+                    c <- true
+				}else {
+					c <- false
+				}
 			}
 		}
-		return wp,tagKv,buf,errors.New("redirect addr is "+addr)
+		return nil,"",nil,nil
 	}
 	return wp,tagKv,buf,nil
 }
@@ -74,6 +80,7 @@ func (s *Server) resolverReadRequest(conn net.Conn, request *bufio.Reader) (*poi
 	}
 	return rp,tagKv,addrList,e
 }
+
 
 func (s *Server) resolverProxyRequest(request *bufio.Reader) (*point.ReadPoint,string,error) {
 	var tagKv string
@@ -137,6 +144,14 @@ func (s *Server) writePoint(request *bufio.Reader) (*point.WritePoint,[]byte,err
 
 func (s *Server) metaDataService() {
 	e:=s.MetaDataService()
+	if e !=nil {
+		log.Println(e)
+	}
+}
+
+
+func (s *Server) nodeDataService() {
+	e:=s.NodeDataService()
 	if e !=nil {
 		log.Println(e)
 	}

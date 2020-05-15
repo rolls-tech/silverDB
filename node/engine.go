@@ -76,8 +76,8 @@ func (e *engine) ReadTsData(readPoint *point.ReadPoint,tagKv string,c chan *poin
 
 func (e *engine) WriteTsData(wp *point.WritePoint,tagKv string,data []byte,dataLen int ,timestamp,id int64) error {
     e.wal.WriteData(wp,tagKv,data,dataLen,timestamp,id)
-   /* er:=e.buffer.WriteData(wp,tagKv)
-    er=e.index.WriteData(wp,tagKv)*/
+    //er:=e.buffer.WriteData(wp,tagKv)
+    //er=e.index.WriteData(wp,tagKv)*/
 	return nil
 }
 

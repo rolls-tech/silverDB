@@ -15,6 +15,7 @@ import (
 type dataNode struct {
 	mutex   sync.RWMutex
 	metrics []*metricData
+	currentListNums int
 	created time.Time
 	count   int
 	maxTime int64
@@ -33,7 +34,6 @@ type metricData struct {
 
 type dataNodeLinked struct {
 	head      *dataNode
-	nodeNum   int
 	maxTime   int64
 	minTime   int64
 	dataBase  string
@@ -42,6 +42,7 @@ type dataNodeLinked struct {
 	tags      map[string]string
 	count     int
 	size      int
+	currentNodeNums int
 }
 
 type DataBuffer struct {
@@ -56,17 +57,18 @@ type DataBuffer struct {
 	lastSnapshot time.Time
 	ttl          time.Duration
 	flushCount   int
+	nodeNums int
+	listNums int
 	*kv
-	//*index
 	listener *metastore.Listener
 	register *metastore.Register
 }
 
-func newDataNode(created time.Time) *dataNode {
+func newDataNode() *dataNode {
 	return &dataNode{
 		mutex:   sync.RWMutex{},
 		metrics: nil,
-		created: created,
+		created: time.Now(),
 		count:   0,
 		maxTime: 0,
 		minTime: 0,
@@ -83,8 +85,8 @@ func newMetricData(metric string, points []utils.Point) *metricData {
 
 func initDataNodeLinked(dataBase, tableName, tagKv string, tags map[string]string) *dataNodeLinked {
 	return &dataNodeLinked{
-		head:      nil,
-		nodeNum:   0,
+		head:     newDataNode(),
+		currentNodeNums:   0,
 		maxTime:   0,
 		minTime:   0,
 		dataBase:  dataBase,
@@ -97,11 +99,6 @@ func initDataNodeLinked(dataBase, tableName, tagKv string, tags map[string]strin
 
 func (b *DataBuffer) sequenceTraversal(dn *dataNodeLinked) *dataNode {
 	current := dn.head
-	if current.next == nil {
-		created := time.Now()
-		current.next = newDataNode(created)
-		return current.next
-	}
 	for current.next != nil {
 		current = current.next
 	}
@@ -116,7 +113,7 @@ func (b *DataBuffer) WriteData(wp *point.WritePoint, tagKv string) error {
 	}
 	_, ok := b.listener.LocalMeta[wp.DataBase+wp.TableName]
 		if !ok {
-		  e= b.register.PutNode(wp.DataBase, wp.TableName)
+		  e= b.register.PutMata(wp.DataBase, wp.TableName)
 			if e != nil {
 				log.Println("update meta data failed !")
 			}
@@ -176,56 +173,57 @@ func (b *DataBuffer) ReadData(dataBase,tableName,tagKv,fieldKey string,startTime
 
 
 func (b *DataBuffer) writeBuffer(wp *point.WritePoint, tagKv string) error {
-	b.mutex.Lock()
-	b.mutex.Unlock()
 	var e error
 	if wp != nil {
 		seriesKey := wp.DataBase + wp.TableName + tagKv
+		b.mutex.RLock()
 		dn, ok := b.buffer[seriesKey]
-		var node *dataNode
+		b.mutex.RUnlock()
+		var currentNode *dataNode
 		if ok {
-			node = b.sequenceTraversal(dn)
-			node.created=time.Now()
+			node := b.sequenceTraversal(dn)
+			if node.currentListNums >= b.listNums {
+				node.next = newDataNode()
+				currentNode=node.next
+			} else {
+				currentNode=node
+			}
 		} else {
-			created := time.Now()
+			b.mutex.Lock()
 			dn = initDataNodeLinked(wp.DataBase, wp.TableName, tagKv, wp.Tags)
-			dn.head = newDataNode(created)
-			dn.head.next = newDataNode(created)
-			node = dn.head.next
 			b.buffer[seriesKey] = dn
+			currentNode=dn.head
+			b.mutex.Unlock()
 		}
 		if wp.Value != nil {
-			metrics := make([]*metricData, 0)
 			for key, value := range wp.Value {
 				if value.Kv != nil {
-					sortKv := utils.NewSortMap(value.Kv)
-					sort.Sort(sortKv)
-					metric := newMetricData(key, sortKv)
-					metric.count = sortKv.Len()
-					metric.maxTime = sortKv[sortKv.Len()-1].T
-					metric.minTime = sortKv[0].T
-					node.count += metric.count
-					if node.maxTime < metric.maxTime {
-						node.maxTime = metric.maxTime
+					pointKv := utils.NewSortMap(value.Kv)
+					sort.Sort(pointKv)
+					metric := newMetricData(key,pointKv)
+					metric.count = pointKv.Len()
+					metric.maxTime = pointKv[pointKv.Len()-1].T
+					metric.minTime = pointKv[0].T
+					currentNode.count += metric.count
+					if currentNode.maxTime < metric.maxTime {
+						currentNode.maxTime = metric.maxTime
 					}
-					if node.minTime > metric.minTime {
-						node.minTime = metric.minTime
+					if currentNode.minTime > metric.minTime {
+						currentNode.minTime = metric.minTime
 					}
-					metrics = append(metrics, metric)
+					currentNode.metrics = append(currentNode.metrics, metric)
+					currentNode.currentListNums += 1
 				}
 			}
-			node.metrics = metrics
-			if dn.maxTime < node.maxTime {
-				dn.maxTime = node.maxTime
+			if dn.maxTime < currentNode.maxTime {
+				dn.maxTime = currentNode.maxTime
 			}
-			if dn.minTime > node.minTime {
-				dn.minTime = node.minTime
+			if dn.minTime > currentNode.minTime {
+				dn.minTime = currentNode.minTime
 			}
-			dn.nodeNum += 1
-			dn.count += node.count
-			//dn.size+=len(data) / 1024
+			dn.currentNodeNums += 1
+			dn.count += currentNode.count
 			b.count += dn.count
-			//b.size+= len(data) /1024
 		}
 		return nil
 	}

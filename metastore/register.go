@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/coreos/etcd/clientv3"
 	"log"
+	"silver/config"
 	"time"
 )
 
@@ -13,12 +14,13 @@ type Register struct {
 	resp       *clientv3.LeaseGrantResponse
 	metaPath   string
 	workerAddr string
+	nodePath string
 }
 
-func NewRegister(metaPath,workerAddr string,metaAddr []string, timeout int64, tick int64) *Register {
+func NewRegister(meta config.MetaStore,workerAddr string) *Register {
 	conf:=clientv3.Config {
-		Endpoints:   metaAddr,
-		DialTimeout: time.Duration(timeout) * time.Second,
+		Endpoints: meta.MetaAddr  ,
+		DialTimeout: time.Duration(meta.Timeout) * time.Second,
 	}
 
 	client,e:=clientv3.New(conf)
@@ -26,16 +28,17 @@ func NewRegister(metaPath,workerAddr string,metaAddr []string, timeout int64, ti
 		log.Fatal("create register client failed !",e)
 	}
 
-	resp,e:=client.Grant(context.TODO(),tick)
+	resp,e:=client.Grant(context.TODO(),meta.HeartBeat)
 	if e !=nil {
 		log.Fatal(e)
 	}
 
 	ng:=&Register{
 		client: client,
-		tick: tick,
+		tick: meta.HeartBeat,
 		resp: resp,
-		metaPath:metaPath,
+		metaPath:meta.MetaPrefix,
+		nodePath:meta.NodePrefix,
 		workerAddr:workerAddr,
 	}
 
@@ -45,7 +48,7 @@ func NewRegister(metaPath,workerAddr string,metaAddr []string, timeout int64, ti
 }
 
 
-func (ng *Register) PutNode(databaseName, tableName string)  error {
+func (ng *Register) PutMata(databaseName, tableName string)  error {
     key:= ng.metaPath +databaseName+"/"+tableName+"/"+ng.workerAddr
     value:=""
 	_,e:= ng.client.Put(context.TODO(), key, value, clientv3.WithLease(ng.resp.ID))
@@ -54,6 +57,17 @@ func (ng *Register) PutNode(databaseName, tableName string)  error {
 	}
 	return e
 }
+
+func (ng *Register) PutNode(clusterAddr string)  error {
+	key:= ng.nodePath+clusterAddr
+	value:=ng.workerAddr
+	_,e:= ng.client.Put(context.TODO(), key, value, clientv3.WithLease(ng.resp.ID))
+	if e != nil {
+		log.Fatal(e)
+	}
+	return e
+}
+
 
 func (ng *Register) listenerNode() {
   /* for {
@@ -66,15 +80,4 @@ func (ng *Register) listenerNode() {
 		  	 log.Println("metaStore server exception")
 		  }
    //}
-}
-
-func (ng *Register) listenerNodeData() {
-
-
-
-
-
-
-
-
 }
