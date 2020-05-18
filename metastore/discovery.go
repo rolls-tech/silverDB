@@ -4,7 +4,6 @@ import (
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/mvcc/mvccpb"
 	"golang.org/x/net/context"
-	"log"
 	"strings"
 	"sync"
 	"time"
@@ -134,6 +133,5 @@ func (dc *Listener) parseMetaData(key string) {
 		ipMap[dataList[5]]=true
 		dc.LocalMeta[dataList[3]+dataList[4]]=ipMap
 	}
-	log.Println(dc.LocalMeta)
 }
 

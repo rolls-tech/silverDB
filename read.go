@@ -8,7 +8,7 @@ import (
 
 func main() {
 	tags:=make(map[string]string,0)
-	tags["k1"]="v1"
+	tags["a1"]="vv3"
 	rp:=&point.ReadPoint{
 		DataBase:              "db1",
 		TableName:             "table1",
