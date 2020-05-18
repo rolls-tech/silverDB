@@ -9,7 +9,6 @@ import (
 	"silver/compress"
 	"silver/node/point"
 	"silver/utils"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -69,7 +68,9 @@ func (s *kv) writeData (dataBase,table,tagKv string,tags map[string]string,data 
 				vv=append(vv,sMt...)
 				vv=append(vv,c.c.Bytes()...)
 				kv[c.minTime]=vv
+				s.mutex.Lock()
 				e:=setKv(c.tableFile,tagKv,c.fieldKey,kv)
+				s.mutex.Unlock()
 				if e !=nil {
 					log.Println("failed persistence data to kv",e)
 				}
@@ -85,7 +86,9 @@ func (s *kv) writeData (dataBase,table,tagKv string,tags map[string]string,data 
 					for _,p:=range points {
 						value[p.T]=utils.Float64ToByte(p.V)
 					}
+					s.mutex.Lock()
 				    e:=setKv(tableFile,tagKv,data.metric,value)
+				    s.mutex.Unlock()
 					if e !=nil {
 						log.Println("failed persistence data to kv",e)
 					}
@@ -176,37 +179,52 @@ func (s *kv) compress(dataBase,tableName string,data *metricData) []*compressPoi
 }
 
 
+func search (points []utils.Point,t int64) int {
+	left:=0
+	right:= len(points) - 1
+	mid:= (left + right) / 2
+	for left < right {
+		if points[mid].T < t {
+			left=mid+1
+			mid=(left+right) / 2
+		}
+		if points[mid].T > t{
+			right=mid-1
+			mid=(left+right) / 2
+		}
+		if points[mid].T == t {
+			return mid
+		}
+	}
+	return left
+}
+
+
+
+
 func (s *kv) setTableFile(dataBase,tableName string,data *metricData) map[string][]utils.Point {
 	tableFileKv:=make(map[string][]utils.Point,0)
 	if data != nil && len(data.points) !=0 {
 		minTime:=data.minTime
 		maxTime:=data.maxTime
 		tableFileMap:=s.scanDataDir(dataBase,tableName,minTime,maxTime)
-		if tableFileMap !=nil {
+		if tableFileMap != nil {
 			for tableFile,tr:=range tableFileMap {
+				ok:=utils.CheckFileIsExist(tableFile)
+				if !ok {
+					db:=openDB(tableFile)
+					e:=db.Close()
+					if e !=nil {
+						log.Println("failed create tableFile",tableFile,e)
+					}
+				}
 				startTime:=tr.startTime
 				endTime:=tr.endTime
-				index1:=sort.Search(len(data.points), func(i int) bool {
-					return data.points[i].T >= startTime
-				})
-				index2:=sort.Search(len(data.points), func(i int) bool {
-					return data.points[i].T < endTime
-				})
-
-				if index2 > (len(data.points)) {
-					s.mutex.Lock()
-					tableFileKv[tableFile]=data.points[index1:]
-					s.mutex.Unlock()
-					return tableFileKv
-				}
-				if index1 == index2  && index1==0 {
-					s.mutex.Lock()
-					tableFileKv[tableFile]=data.points
-					s.mutex.Unlock()
-					return tableFileKv
-				}
+				index1:=search(data.points,startTime)
+				index2:=search(data.points,endTime)
 				s.mutex.Lock()
 				tableFileKv[tableFile]=data.points[index1:index2]
+				tableFileKv[tableFile]=append(tableFileKv[tableFile],data.points[index2])
 				s.mutex.Unlock()
 				return tableFileKv
 			}
@@ -220,6 +238,14 @@ type timeRange struct {
 	endTime int64
 }
 
+func newTimeRange(startTime,endTime int64) *timeRange {
+	return &timeRange{
+		startTime: startTime,
+		endTime:   endTime,
+	}
+}
+
+
 func (s *kv) spiltTimeRange(minTime,maxTime int64) []*timeRange {
 
 	timeRangeList:=make([]*timeRange,0)
@@ -227,19 +253,8 @@ func (s *kv) spiltTimeRange(minTime,maxTime int64) []*timeRange {
 	m:= (maxTime - minTime) / s.duration.Nanoseconds()
 	n:= (maxTime - minTime) % s.duration.Nanoseconds()
 
-	if m == 0 && n == 0 {
-		timeRange:=&timeRange{
-			startTime: 0,
-			endTime:   0,
-		}
-		timeRange.endTime=getEndTime(minTime,s.duration)
-		timeRange.startTime=minTime
-		timeRangeList=append(timeRangeList,timeRange)
-		return timeRangeList
-	}
-
-	if m ==0 && n !=0 {
-		timeRange:=&timeRange{
+	if m ==0 {
+		timeRange:=&timeRange {
 			startTime: 0,
 			endTime:   0,
 		}
@@ -290,21 +305,59 @@ func (s *kv) spiltTimeRange(minTime,maxTime int64) []*timeRange {
 		timeRangeList=append(timeRangeList,timeRange)
 		return timeRangeList
 	}
-
-	return nil
+	return timeRangeList
 }
 
 func (s *kv) scanDataDir(dataBase,tableName string,minTime,maxTime int64) map[string]*timeRange {
 	timeRangeList:=s.spiltTimeRange(minTime,maxTime)
 	tableFileMap:=make(map[string]*timeRange,0)
-	if timeRangeList != nil {
-		for _,tr:= range timeRangeList {
+	if timeRangeList != nil && len(timeRangeList) > 0 {
+		for _,timeRange:= range timeRangeList {
 			var tableFile string
-			startTime:= strconv.FormatInt(tr.startTime,10)
-			endTime:= strconv.FormatInt(tr.endTime,10)
+			startTime:= strconv.FormatInt(timeRange.startTime,10)
+			endTime:= strconv.FormatInt(timeRange.endTime,10)
 			dataBaseDir,exist:=s.dataBaseDirIsExist(dataBase)
 			if exist == true {
-				tableFile=dataBaseDir+sep+tableName+"-"+startTime+"-"+endTime+".db"
+				fileList,_:=ioutil.ReadDir(dataBaseDir)
+				if len(fileList) > 0 {
+				   for _,file:=range fileList {
+					   if !strings.HasSuffix(file.Name(),"lock") {
+						   tableInfo:=strings.Split(file.Name(),"-")
+						   tn:=tableInfo[0]
+						   st:=tableInfo[1]
+						   et:=strings.Split(tableInfo[2],".")[0]
+						   if strings.Compare(tn,tableName) == 0 {
+							   if strings.Compare(startTime, st) >= 0 && strings.Compare(startTime, et) < 0 && strings.Compare(endTime, et) <= 0 {
+								   tableFile = dataBaseDir + sep + file.Name()
+								   tableFileMap[tableFile] = timeRange
+							   }
+							   if strings.Compare(startTime,st) < 0 && strings.Compare(endTime,st) >0 && strings.Compare(endTime,et) < 0 {
+								   tableFile = dataBaseDir + sep + file.Name()
+								   startTime,_:=strconv.ParseInt(st, 10, 64)
+								   tableFileMap[tableFile]= newTimeRange(startTime,timeRange.endTime)
+								   tableFile = dataBaseDir+ sep + tableName +"-"+strconv.FormatInt(startTime - s.duration.Nanoseconds(),10)+"-"+st+".db"
+								   tableFileMap[tableFile]=newTimeRange(startTime-s.duration.Nanoseconds(),startTime)
+							   }
+							   if strings.Compare(startTime,st) >= 0 &&  strings.Compare(startTime,et) < 0 && strings.Compare(endTime,et) > 0 {
+								   tableFile = dataBaseDir + sep + file.Name()
+								   endTime,_:=strconv.ParseInt(et, 10, 64)
+								   tableFileMap[tableFile]= newTimeRange(timeRange.startTime,endTime)
+								   tableFile = dataBaseDir+ sep + tableName+"-"+et+"-"+strconv.FormatInt(endTime + s.duration.Nanoseconds(),10)+".db"
+								   tableFileMap[tableFile]= newTimeRange(endTime,endTime+s.duration.Nanoseconds())
+							   }
+						   }
+					   }
+				   }
+				} else {
+					if (timeRange.endTime - timeRange.startTime) < s.duration.Nanoseconds() {
+						tableFile=dataBaseDir+sep+tableName+"-"+startTime+"-"+ strconv.FormatInt(timeRange.startTime+s.duration.Nanoseconds(),10)+".db"
+						tableFileMap[tableFile]=newTimeRange(timeRange.startTime,timeRange.startTime+s.duration.Nanoseconds())
+					}
+					if (timeRange.endTime - timeRange.startTime) >= s.duration.Nanoseconds() {
+						tableFile=dataBaseDir+sep+tableName+"-"+startTime+"-"+endTime+".db"
+						tableFileMap[tableFile]=timeRange
+					}
+				}
 			} else {
 				rand.Seed(time.Now().UnixNano())
 				n := rand.Intn(len(s.dataDir))
@@ -312,21 +365,18 @@ func (s *kv) scanDataDir(dataBase,tableName string,minTime,maxTime int64) map[st
 				if e !=nil {
 					log.Println("failed create data dir",s.dataDir[n]+dataBase,e)
 				}
-				tableFile=s.dataDir[n]+dataBase+sep+tableName+"-"+startTime+"-"+endTime+".db"
-			}
-			ok:=utils.CheckFileIsExist(tableFile)
-			if !ok {
-				db:=openDB(tableFile)
-				e:=db.Close()
-				if e !=nil {
-					log.Println("failed create tableFile",tableFile,e)
+				if (timeRange.endTime - timeRange.startTime) < s.duration.Nanoseconds() {
+					tableFile=s.dataDir[n]+dataBase+sep+tableName+"-"+startTime+"-"+ strconv.FormatInt(timeRange.startTime+s.duration.Nanoseconds(),10)+".db"
+					tableFileMap[tableFile]=newTimeRange(timeRange.startTime,timeRange.startTime+s.duration.Nanoseconds())
+				}
+				if (timeRange.endTime - timeRange.startTime) >= s.duration.Nanoseconds() {
+					tableFile=s.dataDir[n]+dataBase+sep+tableName+"-"+startTime+"-"+endTime+".db"
+					tableFileMap[tableFile]=timeRange
 				}
 			}
-			tableFileMap[tableFile]=tr
 		}
-		return tableFileMap
 	}
-    return nil
+    return tableFileMap
 }
 
 func (s *kv) dataBaseDirIsExist(dataBase string) (string,bool) {

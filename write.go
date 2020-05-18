@@ -9,9 +9,9 @@ import (
 func main() {
 
 	tagKv:=make(map[string]string,0)
-	tagKv["k1"]="vv3"
-	tagKv["k2"]="vv4"
-	tagKv["k3"]="kk3"
+	tagKv["a1"]="vv3"
+	tagKv["b2"]="vv4"
+	tagKv["c3"]="kk3"
 	kv:=make(map[int64]float64,0)
 
 	for n:=0; n < 10000 ;n++ {

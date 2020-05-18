@@ -63,7 +63,7 @@ func (s *Server) process(conn net.Conn) {
 			}else if op == 'G' {
 				e=s.readRequest(readResultCh,conn,request)
 			} else if op == 'P' {
-				e=s.proxyRequest(readResultCh,conn,request)
+				e=s.proxyReadRequest(readResultCh,conn,request)
 			}else {
 				log.Println("unsupported operate type ",string(op))
 				return
@@ -94,29 +94,30 @@ func (s *Server) writeRequest(ch chan chan bool,conn net.Conn, request *bufio.Re
 }
 
 func (s *Server) readRequest(ch chan chan *point.ReadPoint,conn net.Conn, request *bufio.Reader) error {
-	c:=make(chan *point.ReadPoint,0)
-	ch <-c
-	rp,tagKv,addrList,e:=s.resolverReadRequest(conn, request)
+	rp,buf,tagKv,addrList,e:=s.resolverReadRequest(conn, request)
 	if e !=nil {
 		log.Println("parse read request info failed !",e)
 	}
-	if addrList != nil {
+	if addrList != nil && len(addrList) > 0 {
+		c:=make(chan *point.ReadPoint,len(addrList))
+		ch <- c
 		for addr,_:=range addrList {
-			log.Println(s.StorageAddr())
 			if strings.Compare(addr, s.StorageAddr()) == 0 {
 				if rp != nil {
 					s.ReadTsData(rp, tagKv, c)
 				}
 			} else {
-				proxy := client.NewClient(addr)
-				proxy.ExecuteRead(rp)
+				go func() {
+					proxy := client.NewClient(addr)
+					proxy.ExecuteProxyRead(buf,c)
+				}()
 			}
 		}
 	}
 	return e
 }
 
-func (s *Server) proxyRequest(ch chan chan *point.ReadPoint,conn net.Conn,request *bufio.Reader) error {
+func (s *Server) proxyReadRequest(ch chan chan *point.ReadPoint,conn net.Conn,request *bufio.Reader) error {
 	c:=make(chan *point.ReadPoint,0)
 	ch <- c
 	rp,tagKv,e:=s.resolverProxyRequest(request)
@@ -125,7 +126,6 @@ func (s *Server) proxyRequest(ch chan chan *point.ReadPoint,conn net.Conn,reques
 	}
 
 	if rp !=nil {
-		//需要先读取索引，再读Buffer、在读文件
 		s.ReadTsData(rp,tagKv,c)
 	}
 	return e

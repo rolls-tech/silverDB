@@ -76,9 +76,9 @@ func (e *engine) ReadTsData(readPoint *point.ReadPoint,tagKv string,c chan *poin
 
 func (e *engine) WriteTsData(wp *point.WritePoint,tagKv string,data []byte,dataLen int ,timestamp,id int64) error {
     e.wal.WriteData(wp,tagKv,data,dataLen,timestamp,id)
-    //er:=e.buffer.WriteData(wp,tagKv)
-    //er=e.index.WriteData(wp,tagKv)*/
-	return nil
+    er:=e.buffer.WriteData(wp,tagKv)
+    er=e.index.WriteData(wp,tagKv)
+	return er
 }
 
 
@@ -86,8 +86,8 @@ func NewStorage(config config.NodeConfig,listener1 *metastore.Listener,register1
 	var s Storage
 	s = &engine {
 		wal:    storage.NewWalBuffer(config),
-		/*index:  storage.NewIndex(config.Flush.TTL,config.IndexDir),
-		buffer: storage.NewDataBuffer(config,listener1,register1),*/
+		index:  storage.NewIndex(config.Flush.TTL,config.IndexDir),
+		buffer: storage.NewDataBuffer(config,listener1,register1),
 	}
 	log.Println("silverDB storage ready to service")
 	return s

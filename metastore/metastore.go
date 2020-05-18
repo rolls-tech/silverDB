@@ -37,7 +37,7 @@ func (m *MetaStore) getLocalMataData(dataDir []string){
 								m.MetaData[db.Name()]=make(map[string]bool,0)
 							}
 							fileList, _ := ioutil.ReadDir(dir+db.Name())
-							if len(fileList) < 0 {
+							if len(fileList) > 0 {
 								for _,tb:=range fileList {
 									if !tb.IsDir() && strings.HasSuffix(tb.Name(),"db") && !strings.Contains(tb.Name(),"_index.db") {
 										_,ok:=m.MetaData[db.Name()][strings.Split(tb.Name(),"-")[0]]

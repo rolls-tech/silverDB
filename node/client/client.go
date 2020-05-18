@@ -128,6 +128,46 @@ func (tc *tcpClient) ExecuteRead(rp *point.ReadPoint) {
 	c.processReadResponse()
 }
 
+
+func (tc *tcpClient) ExecuteProxyRead(data []byte,rp chan *point.ReadPoint) {
+	c:=newClient(tc.serverAddr)
+	dLen:=len(data)
+	_,e:=c.Write([]byte(fmt.Sprintf("P%d,%s",dLen,data)))
+	if e !=nil {
+		log.Println("client send proxy read request failed !",e)
+	}
+	c.processProxyReadResponse(rp)
+}
+
+func (c *client) processProxyReadResponse(rp chan *point.ReadPoint)  {
+	op, e := c.r.ReadByte()
+	if e != nil {
+		if e != io.EOF {
+			log.Println("close connection due to error:", e)
+		}
+		return
+	}
+	switch op {
+	case 'f':
+		log.Println("client read proxy response failed !", e)
+		return
+	case 'V':
+		v, e := c.recvResponse()
+		if e != nil {
+			log.Println("client read proxy response failed !", e)
+			return
+		}
+		data:=&point.ReadPoint{}
+		e=proto.Unmarshal(v,data)
+		if e != nil {
+			log.Println(" proxy readPoint deserialization failed ! ",e.Error())
+			return
+		}
+		rp <-data
+	}
+	return
+}
+
 func (c *client) readRequest(rp *point.ReadPoint) {
 	data,e:=proto.Marshal(rp)
 	if e !=nil {

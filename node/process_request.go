@@ -53,11 +53,11 @@ func (s *Server) resolveWriteRequest(conn net.Conn, request *bufio.Reader,c chan
 	return wp,tagKv,buf,nil
 }
 
-func (s *Server) resolverReadRequest(conn net.Conn, request *bufio.Reader) (*point.ReadPoint,string,map[string]bool,error) {
-	rp,e := s.readPoint(request)
+func (s *Server) resolverReadRequest(conn net.Conn, request *bufio.Reader) (*point.ReadPoint,[]byte,string,map[string]bool,error) {
+	rp,buf,e := s.readPoint(request)
 	var tagKv string
 	if e != nil {
-		return rp,tagKv,nil,e
+		return rp,buf,tagKv,nil,e
 	}
 	if rp.Tags != nil {
 		st := utils.NewSortTags(rp.Tags)
@@ -75,16 +75,16 @@ func (s *Server) resolverReadRequest(conn net.Conn, request *bufio.Reader) (*poi
 		_, e := conn.Write([]byte(fmt.Sprintf("M%d,%s", len("f"),"f")))
 		if e != nil {
 			log.Println("client meta data return failed",e.Error())
-			return rp,tagKv,addrList,e
+			return rp,buf,tagKv,addrList,e
 		}
 	}
-	return rp,tagKv,addrList,e
+	return rp,buf,tagKv,addrList,e
 }
 
 
 func (s *Server) resolverProxyRequest(request *bufio.Reader) (*point.ReadPoint,string,error) {
 	var tagKv string
-	rp,e:=s.readPoint(request)
+	rp,_,e:=s.readPoint(request)
 	if e !=nil {
 		return rp,tagKv,e
 	}
@@ -99,7 +99,7 @@ func (s *Server) resolverProxyRequest(request *bufio.Reader) (*point.ReadPoint,s
 }
 
 
-func (s *Server) readPoint(request *bufio.Reader) (*point.ReadPoint,error) {
+func (s *Server) readPoint(request *bufio.Reader) (*point.ReadPoint,[]byte,error) {
 	l1,e:= readLen(request)
 	if e !=nil {
 		log.Println("not support message format !",e.Error())
@@ -108,15 +108,15 @@ func (s *Server) readPoint(request *bufio.Reader) (*point.ReadPoint,error) {
 	buf := make([]byte,dLen)
 	_, e = io.ReadFull(request, buf)
 	if e != nil {
-		return nil,e
+		return nil,buf,e
 	}
 	data:=&point.ReadPoint{}
 	e=proto.Unmarshal(buf,data)
 	if e != nil {
 		log.Println(" readPoint deserialization failed! ",e.Error())
-		return nil,e
+		return nil,buf,e
 	}
-	return data,e
+	return data,buf,e
 
 }
 

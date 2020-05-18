@@ -22,7 +22,7 @@ func init() {
 	flag.IntVar(&batchSize, "n", 5000, "number of point every pipeline")
 	flag.IntVar(&valueSize, "d", 1, "data size of SET/GET value in bytes")
 	flag.IntVar(&threads, "c", 10, "number of parallel connections")
-	flag.IntVar(&keyspaceLen, "r", 20, "keyspaceLen,use random keys from 0 to keyspaceLen-1")
+	flag.IntVar(&keyspaceLen, "r", 10, "keyspaceLen,use random keys from 0 to keyspaceLen-1")
 	flag.IntVar(&pipeLen, "P", 10, "pipeline length")
 	flag.Parse()
 	fmt.Println("type is", typ)

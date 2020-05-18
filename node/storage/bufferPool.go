@@ -138,47 +138,13 @@ func (b *DataBuffer) ReadData(dataBase,tableName,tagKv,fieldKey string,startTime
 }
 
 
-/*func (b *DataBuffer) readBuffer() error {
-
-}*/
-
-
-/*func (b *DataBuffer) writeData(wp *point.WritePoint, tagKv string, walCh chan bool) {
-	ok := <-walCh
-	if ok {
-		go func(wp *point.WritePoint, tagKv string) {
-			e := b.writeBuffer(wp, tagKv)
-			if e != nil {
-				log.Println("write data buffer failed !", e)
-			}
-		}(wp, tagKv)
-		go func(wp *point.WritePoint, tagKv string) {
-			e := b.index.writeIndex(wp, tagKv)
-			if e != nil {
-				log.Println("write index data failed !", e)
-			}
-		}(wp, tagKv)
-		go func(wp *point.WritePoint) {
-			_, ok := b.listener.LocalMeta[wp.DataBase+wp.TableName]
-			if !ok {
-				e := b.register.PutNode(wp.DataBase, wp.TableName)
-				if e != nil {
-					log.Println("update meta data failed !")
-				}
-			}
-		}(wp)
-	}
-}*/
-
-
-
 func (b *DataBuffer) writeBuffer(wp *point.WritePoint, tagKv string) error {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	var e error
 	if wp != nil {
 		seriesKey := wp.DataBase + wp.TableName + tagKv
-		b.mutex.RLock()
 		dn, ok := b.buffer[seriesKey]
-		b.mutex.RUnlock()
 		var currentNode *dataNode
 		if ok {
 			node := b.sequenceTraversal(dn)
@@ -189,11 +155,9 @@ func (b *DataBuffer) writeBuffer(wp *point.WritePoint, tagKv string) error {
 				currentNode=node
 			}
 		} else {
-			b.mutex.Lock()
 			dn = initDataNodeLinked(wp.DataBase, wp.TableName, tagKv, wp.Tags)
 			b.buffer[seriesKey] = dn
 			currentNode=dn.head
-			b.mutex.Unlock()
 		}
 		if wp.Value != nil {
 			for key, value := range wp.Value {
@@ -208,8 +172,12 @@ func (b *DataBuffer) writeBuffer(wp *point.WritePoint, tagKv string) error {
 					if currentNode.maxTime < metric.maxTime {
 						currentNode.maxTime = metric.maxTime
 					}
-					if currentNode.minTime > metric.minTime {
-						currentNode.minTime = metric.minTime
+					if len(currentNode.metrics) == 0 {
+						currentNode.minTime=metric.minTime
+					} else {
+						if currentNode.minTime > metric.minTime {
+							currentNode.minTime = metric.minTime
+						}
 					}
 					currentNode.metrics = append(currentNode.metrics, metric)
 					currentNode.currentListNums += 1
@@ -223,9 +191,7 @@ func (b *DataBuffer) writeBuffer(wp *point.WritePoint, tagKv string) error {
 			}
 			dn.currentNodeNums += 1
 			dn.count += currentNode.count
-			b.count += dn.count
 		}
-		return nil
 	}
 	return e
 }
@@ -255,46 +221,21 @@ func NewDataBuffer(config config.NodeConfig, listener1 *metastore.Listener, regi
 func (b *DataBuffer) flush(flushCount int) {
 	for {
 		time.Sleep(b.ttl)
-		if len(b.buffer) != 0 && b.snapshotting == false {
-		/*	b.snapshot = b
-			b.snapshotting=true
-			b.lastSnapshot = time.Now()
-			b.snapshot.mutex.Lock()
-			temp:=b.snapshot.buffer*/
+		if len(b.buffer) != 0 && b.buffer != nil {
 			for seriesKey, dn := range b.buffer {
 				if dn.count >= flushCount {
 					current := dn.head
-					for current.next != nil {
-						for _, metric := range current.next.metrics {
+					for current != nil {
+						for _, metric := range current.metrics {
 							b.kv.writeData(dn.dataBase, dn.tableName, dn.tagKv, dn.tags, metric)
 						}
 						current = current.next
 					}
 					b.mutex.Lock()
-					delete(b.buffer, seriesKey)
-					b.count -= dn.count
-					b.size -= dn.size
+					delete(b.buffer,seriesKey)
 					b.mutex.Unlock()
 				}
-				/*if dn.head != nil {
-					current:=dn.head
-					for current.next != nil {
-					   if current.next.created.Add(b.ttl).Before(time.Now()) {
-						   for _, metric := range current.next.metrics {
-							   b.snapshot.kv.writeData(dn.dataBase, dn.tableName, dn.tagKv, dn.tags, metric)
-						   }
-						   b.count -= current.next.count
-						   b.size -= current.size
-					    }
-					    current = current.next
-						b.count -= dn.count
-						b.size -= dn.size
-					}
-				}*/
 			}
-			/*b.snapshotting = false
-			b.snapshot.mutex.Unlock()*/
-
 		}
 	}
 }
