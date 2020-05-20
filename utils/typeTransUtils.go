@@ -24,7 +24,7 @@ func ByteToFloat64(bytes []byte) float64 {
 }
 
 
-func IntToByte(num int64) []byte{
+func Int64ToByte(num int64) []byte{
 	var buffer bytes.Buffer
 	err :=binary.Write(&buffer,binary.BigEndian,num)
 	if err !=nil {
@@ -33,9 +33,28 @@ func IntToByte(num int64) []byte{
 	return buffer.Bytes()
 }
 
+func IntToByte(num int) []byte {
+	x := int32(num)
+	var buffer bytes.Buffer
+	err :=binary.Write(&buffer,binary.BigEndian,x)
+	if err !=nil {
+		log.Println(err)
+	}
+	return buffer.Bytes()
+}
+
+func ByteToInt64(data []byte) int64 {
+	return int64(binary.BigEndian.Uint64(data))
+}
+
+func ByteToInt(data []byte) int {
+	return int(binary.BigEndian.Uint32(data))
+}
+
+
 
 func TransTime (originTime int64) string {
-	timePrecision:=len(IntToByte(originTime))
+	timePrecision:=len(Int64ToByte(originTime))
 	switch timePrecision {
 	case 10:
 		tt:=time.Unix(0,originTime*1e9).Format(RFC3339Nano)

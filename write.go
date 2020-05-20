@@ -14,7 +14,7 @@ func main() {
 	tagKv["c3"]="kk3"
 	kv:=make(map[int64]float64,0)
 
-	for n:=0; n < 10000 ;n++ {
+	for n:=0; n < 15000 ; n++ {
 		kv[time.Now().UnixNano()+int64(n)] = float64(n)
 	}
 
@@ -23,7 +23,7 @@ func main() {
 		Kv:                   kv,
 	}
 	filedKv:=make(map[string]*point.Value)
-	filedKv["key"]=value
+	filedKv["k1"]=value
 	wp:=&point.WritePoint{
 		DataBase:             "db1",
 		TableName:            "table1",

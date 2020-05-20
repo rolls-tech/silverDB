@@ -26,4 +26,5 @@ metastore:
 discovery:
   timeout: 10
 compressed: true
+compressCount: 10000
 indexed: true

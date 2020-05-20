@@ -125,7 +125,7 @@ func (b *DataBuffer) WriteData(wp *point.WritePoint, tagKv string) error {
 func (b *DataBuffer) ReadData(dataBase,tableName,tagKv,fieldKey string,startTime,endTime int64) map[int64]float64 {
 	var value point.Value
 	kv:=make(map[int64]float64)
-    dataSet:=b.readTsData(dataBase,tableName,tagKv,fieldKey,startTime,endTime)
+    dataSet:=b.readData(dataBase,tableName,tagKv,fieldKey,startTime,endTime)
 	if len(dataSet) != 0 {
 		for _,data:=range dataSet {
 			if len(data) !=0 {
@@ -208,7 +208,7 @@ func NewDataBuffer(config config.NodeConfig, listener1 *metastore.Listener, regi
 		snapshotting: false,
 		lastSnapshot: time.Time{},
 		ttl:          time.Duration(config.Flush.TTL) * time.Second,
-		kv:           NewKv(config.DataDir, config.Compressed, 24*time.Hour),
+		kv:           NewKv(config.DataDir, config.Compressed, 24*time.Hour,config.CompressCount),
 		listener:     listener1,
 		register:     register1,
 	}
@@ -224,14 +224,16 @@ func (b *DataBuffer) flush(flushCount int) {
 		if len(b.buffer) != 0 && b.buffer != nil {
 			for seriesKey, dn := range b.buffer {
 				if dn.count >= flushCount {
-					current := dn.head
-					for current != nil {
-						for _, metric := range current.metrics {
-							b.kv.writeData(dn.dataBase, dn.tableName, dn.tagKv, dn.tags, metric)
+					b.mutex.Lock()
+					//current := dn.head
+					b.kv.writeDataLinked(dn)
+
+					/*for current != nil {
+						if len(current.metrics) > 0 {
+							b.kv.writeData(dn.dataBase, dn.tableName, dn.tagKv, dn.tags,current.metrics)
 						}
 						current = current.next
-					}
-					b.mutex.Lock()
+					}*/
 					delete(b.buffer,seriesKey)
 					b.mutex.Unlock()
 				}

@@ -17,6 +17,7 @@ type NodeConfig struct {
 	MetaStore MetaStore `yaml:"metastore"`
 	Discovery Discovery `yaml:"discovery"`
 	Compressed bool `yaml:"compressed"`
+	CompressCount int `yaml:"compressCount"`
 	Indexed bool `yaml:"indexed"`
 }
 

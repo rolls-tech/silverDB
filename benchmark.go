@@ -19,10 +19,10 @@ func init() {
 	flag.StringVar(&server, "h", "127.0.0.1:12346", "storage server address")
 	flag.StringVar(&key, "k", "k", "key")
 	flag.StringVar(&value, "v", "v", "value")
-	flag.IntVar(&batchSize, "n", 5000, "number of point every pipeline")
-	flag.IntVar(&valueSize, "d", 1, "data size of SET/GET value in bytes")
-	flag.IntVar(&threads, "c", 10, "number of parallel connections")
-	flag.IntVar(&keyspaceLen, "r", 10, "keyspaceLen,use random keys from 0 to keyspaceLen-1")
+	flag.IntVar(&batchSize, "n", 10000, "number of point every pipeline")
+	flag.IntVar(&valueSize, "d", 2, "data size of SET/GET value in bytes")
+	flag.IntVar(&threads, "c", 20, "number of parallel connections")
+	flag.IntVar(&keyspaceLen, "r", 30, "keyspaceLen,use random keys from 0 to keyspaceLen-1")
 	flag.IntVar(&pipeLen, "P", 10, "pipeline length")
 	flag.Parse()
 	fmt.Println("type is", typ)
@@ -77,6 +77,9 @@ func pipelineRun(id,batchSize,pipeLen int,result *result,wg *sync.WaitGroup) {
 		}
 		filedKv:=make(map[string]*point.Value)
 		filedKv[key]=v
+		filedKv["aaa"]=v
+		filedKv["bbb"]=v
+		filedKv["ccc"]=v
 		wp:=&point.WritePoint {
 			DataBase:             key,
 			TableName:            value,

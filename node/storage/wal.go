@@ -47,8 +47,8 @@ func(w *Wal) writeData(data *walData) error {
 
 
 func (w *Wal) writeWal(data *walData) (bool,error) {
-		timestamp:=utils.IntToByte(data.timestamp)
-	    sequenceId:=utils.IntToByte(data.sequenceId)
+		timestamp:=utils.Int64ToByte(data.timestamp)
+	    sequenceId:=utils.Int64ToByte(data.sequenceId)
 	    buf:=make([]byte, len(timestamp)+len(sequenceId)+len(data.data))
 	    buf=append(buf,timestamp...)
 	    buf=append(buf,sequenceId...)

@@ -1,5 +1,6 @@
 package utils
 
+
 type SortMap []Point
 
 type Point struct {

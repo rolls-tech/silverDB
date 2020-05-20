@@ -1,13 +1,17 @@
 package storage
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"github.com/boltdb/bolt"
+	"io"
 	"log"
-	"silver/compress"
 	"silver/node/point"
 	"silver/utils"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -45,7 +49,7 @@ func scanKv(tableFile,tagKv,fieldKey string, value *point.Value,startTime,endTim
 			if k != nil && v == nil {
 				subB:=rootTable.Bucket(k)
 				subC:=subB.Cursor()
-				for key,vv:=subC.Seek(utils.IntToByte(startTime)); key != nil && bytes.Compare(key,utils.IntToByte(endTime)) <= 0; key,vv=subC.Next() {
+				for key,vv:=subC.Seek(utils.Int64ToByte(startTime)); key != nil && bytes.Compare(key,utils.Int64ToByte(endTime)) <= 0; key,vv=subC.Next() {
 					value.Kv[int64(binary.BigEndian.Uint64(key))]=utils.ByteToFloat64(vv)
 				}
 			}
@@ -58,7 +62,7 @@ func scanKv(tableFile,tagKv,fieldKey string, value *point.Value,startTime,endTim
 }
 
 
-func scanCompressKv(tableFile,tagKv,fieldKey string, value *point.Value,startTime,endTime int64) *bolt.DB {
+/*func scanCompressKv(tableFile,tagKv,fieldKey string, value *point.Value,startTime,endTime int64) *bolt.DB {
 	db:=openDB(tableFile)
 	if err:= db.View(func(tx *bolt.Tx) error {
 		rootTable := tx.Bucket([]byte(tagKv))
@@ -69,8 +73,8 @@ func scanCompressKv(tableFile,tagKv,fieldKey string, value *point.Value,startTim
 				subB:=rootTable.Bucket(k)
 				_ = subB.ForEach(func(k, v []byte) error {
 					minTime := k
-					if bytes.Compare(minTime,utils.IntToByte(startTime)) >= 0 {
-						deCompress(v[15:],value,startTime, endTime)
+					if bytes.Compare(minTime,utils.Int64ToByte(startTime)) >= 0 {
+						deCompressChunk(v[15:],value,startTime, endTime)
 					}
 					return nil
 				})
@@ -81,18 +85,9 @@ func scanCompressKv(tableFile,tagKv,fieldKey string, value *point.Value,startTim
 		log.Println(err)
 	}
 	return db
-}
+}*/
 
-func deCompress(v []byte,value *point.Value,startTime int64,endTime int64){
-	c:=compress.NewBXORChunk(v)
-	it:=c.Iterator(nil)
-	for it.Next() {
-		tt,vv:=it.At()
-		if tt >= startTime && tt <= endTime {
-			value.Kv[tt]=vv
-		}
-	}
-}
+
 
 
 func setKv(tableFile,tagKv,fieldKey string,Kv map[int64][]byte) error {
@@ -109,7 +104,7 @@ func setKv(tableFile,tagKv,fieldKey string,Kv map[int64][]byte) error {
 		}
 		if Kv != nil {
 			for k,v:=range Kv {
-				err = table.Put(utils.IntToByte(k),v)
+				err = table.Put(utils.Int64ToByte(k),v)
 				if err != nil {
 					return err
 				}
@@ -121,4 +116,130 @@ func setKv(tableFile,tagKv,fieldKey string,Kv map[int64][]byte) error {
 		return err
 	}
 	return nil
+}
+
+
+func generateChunkData(chunk *compressPoints) ([]byte,[]byte) {
+	minTime:=utils.Int64ToByte(chunk.minTime)
+	maxTime:=utils.Int64ToByte(chunk.maxTime)
+	timestamp:=utils.Int64ToByte(time.Now().UnixNano())
+	count:=utils.IntToByte(chunk.count)
+	bucketKey:=[]byte(fmt.Sprintf("%s%s%s%s",minTime,maxTime,timestamp,count))
+	chunkValue:=[]byte(fmt.Sprintf("%d,%s", len(chunk.chunk.Bytes()),chunk.chunk.Bytes()))
+	return bucketKey,chunkValue
+}
+
+type chunkData struct {
+	minTime []byte
+    maxTime []byte
+ 	timestamp []byte
+    count []byte
+	chunk []byte
+}
+
+func newChunkData() *chunkData {
+	return &chunkData{}
+}
+
+
+func resolverChunkData(keyByte,chunkByte []byte) *chunkData {
+	chunkData:=newChunkData()
+	if len(keyByte) >= 24 && len(chunkByte) > 0 {
+		minTime:=keyByte[0:8]
+		maxTime:=keyByte[8:16]
+		timestamp:=keyByte[16:24]
+		count:=keyByte[24:]
+		rd:= bytes.NewReader(chunkByte)
+		reader:=bufio.NewReader(rd)
+		chunkLen,_:=reader.ReadString(',')
+		chunkLen=strings.ReplaceAll(chunkLen,",","")
+		cLen,e:= strconv.Atoi(chunkLen)
+		if e != nil {
+			log.Println(e)
+		}
+		chunk := make([]byte,cLen)
+		_,e= io.ReadFull(reader,chunk)
+		if e !=nil {
+			log.Println("resolver chunk data failed !",e)
+		}
+        chunkData.minTime=minTime
+        chunkData.maxTime=maxTime
+        chunkData.timestamp=timestamp
+        chunkData.count=count
+        chunkData.chunk=chunk
+		return chunkData
+	}
+	return chunkData
+}
+
+
+func writeKv(tableFile,tagKv string,chunkList []*compressPoints) error {
+		db:=openDB(tableFile)
+		defer db.Close()
+		if len(chunkList) > 0 {
+		for _,chunk:=range chunkList {
+			if err := db.Batch(func(tx *bolt.Tx) error {
+			table, err := tx.CreateBucketIfNotExists([]byte(tagKv+chunk.fieldKey))
+			if err != nil {
+				return err
+			}
+			key,value:=generateChunkData(chunk)
+			err = table.Put(key,value)
+			if err != nil {
+				return err
+				}
+			return nil
+			}); err != nil {
+				log.Println(err)
+				return err
+				}
+			}
+		}
+	return nil
+}
+
+
+func readKv(tableFile,tagKv,fieldKey string,startTime,endTime int64) (map[int]ChunkDataList,*bolt.DB){
+	db:=openDB(tableFile)
+	chunkDataGroup:=make(map[int]ChunkDataList,0)
+	chunkDataGroup[1]=make(ChunkDataList,0)
+	chunkDataGroup[2]=make(ChunkDataList,0)
+	chunkDataGroup[3]=make(ChunkDataList,0)
+	chunkDataGroup[4]=make(ChunkDataList,0)
+	if err:= db.View(func(tx *bolt.Tx) error {
+		table := tx.Bucket([]byte(tagKv+fieldKey))
+		if table !=nil {
+			err:= table.ForEach(func(key, value []byte) error {
+				if key !=nil && value !=nil {
+					chunkData:=resolverChunkData(key,value)
+					if bytes.Compare(utils.Int64ToByte(startTime),chunkData.minTime) >=0 &&
+						bytes.Compare(utils.Int64ToByte(endTime),chunkData.maxTime) <= 0 {
+						chunkDataGroup[1]=append(chunkDataGroup[1], chunkData)
+					}
+					if bytes.Compare(utils.Int64ToByte(startTime),chunkData.minTime) >= 0 &&
+						bytes.Compare(utils.Int64ToByte(endTime),chunkData.maxTime) > 0 {
+						chunkDataGroup[2]=append(chunkDataGroup[2], chunkData)
+					}
+					if bytes.Compare(utils.Int64ToByte(startTime),chunkData.minTime) <= 0 &&
+						bytes.Compare(utils.Int64ToByte(endTime),chunkData.maxTime) < 0 {
+						chunkDataGroup[3]=append(chunkDataGroup[3], chunkData)
+
+					}
+					if bytes.Compare(utils.Int64ToByte(startTime),chunkData.minTime) < 0 &&
+						bytes.Compare(utils.Int64ToByte(endTime),chunkData.maxTime) > 0 {
+						chunkDataGroup[4]=append(chunkDataGroup[4], chunkData)
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				log.Println(err)
+				return nil
+			}
+		}
+		return nil
+	}); err != nil {
+		log.Println(err)
+	}
+	return chunkDataGroup,db
 }
