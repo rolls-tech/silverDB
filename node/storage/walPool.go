@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"github.com/bwmarrin/snowflake"
 	"log"
 	"silver/config"
 	"silver/node/point"
@@ -21,7 +22,8 @@ type walDataList struct {
 }
 
 type walData struct {
-	wp *point.WritePoint
+	databaseName string
+	tableName string
 	tagKv string
 	sequenceId int64
 	timestamp int64
@@ -42,6 +44,7 @@ type WalBuffer struct {
 	flushCount int
 	nodeNums int
 	listNums int
+	nodeId int64
 	*Wal
 }
 
@@ -75,15 +78,22 @@ func initWalNodeLinked() *walNodeLinked {
 
 
 
-func newWalData(wp *point.WritePoint,tagKv string,data []byte,dataLen int,timestamp int64,id int64) *walData {
+func newWalData(databaseName,tableName,tagKv string,data []byte,dataLen int,timestamp int64,nodeId int64) *walData {
+	n,e:=snowflake.NewNode(nodeId)
+    if e !=nil {
+    	log.Println("generate wal id failed !",e)
+    	return nil
+	}
+    id:=n.Generate().Int64()
 	return &walData{
 		sequenceId: id,
 		timestamp:  timestamp,
 		operate:    "s",
 		data:       data,
 		size:       dataLen,
-		wp: wp,
 		tagKv: tagKv,
+		databaseName: databaseName,
+		tableName:tableName,
 	}
 }
 
@@ -97,6 +107,7 @@ func NewWalBuffer(config config.NodeConfig)  *WalBuffer {
 		nodeNums:config.Wal.NodeNums,
 		listNums:config.Wal.ListNums,
 		Wal:NewWal(config),
+		nodeId:config.NodeId,
     }
 	go wb.flush()
 	return wb
@@ -140,7 +151,7 @@ func (wb *WalBuffer) flush() {
 
 func(wb *WalBuffer) WriteData(wp *point.WritePoint,tagKv string,data []byte,dataLen int,timestamp,id int64) {
     node:=wb.getWalNode(wp.DataBase,wp.TableName)
-	node.wd.dataList=append(node.wd.dataList,newWalData(wp,tagKv,data,dataLen,timestamp,id))
+	node.wd.dataList=append(node.wd.dataList,newWalData(wp.DataBase,wp.TableName,tagKv,data,dataLen,timestamp,wb.nodeId))
 	node.wd.currentListNum=node.wd.currentListNum+1
 }
 

@@ -9,6 +9,7 @@ import (
 type NodeConfig struct {
 	NodeName string  `yaml:"nodeName"`
 	NodeAddr NodeAddr `yaml:"nodeAddr"`
+	NodeId int64 `yaml:"nodeId"`
 	DataDir []string  `yaml:"dataDir,flow"`
 	IndexDir []string `yaml:"indexDir,flow"`
 	Wal Wal  `yaml:"wal"`

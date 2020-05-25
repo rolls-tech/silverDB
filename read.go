@@ -20,4 +20,7 @@ func main() {
 	config:=config.LoadConfigInfo("config/config1.yaml")
 	tc:=client.NewClient(config.NodeAddr.TcpAddr)
 	tc.ExecuteRead(rp)
+
+
+
 }

@@ -459,7 +459,11 @@ func loadIndex (indexDir []string) map[string]*indexNode {
 }
 
 
+// To-do index key
+func encodedIndex() {
 
+
+}
 
 
 

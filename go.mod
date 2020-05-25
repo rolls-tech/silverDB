@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/boltdb/bolt v1.3.1
+	github.com/bwmarrin/snowflake v0.3.0
 	github.com/coreos/bbolt v1.3.4 // indirect
 	github.com/coreos/etcd v3.3.20+incompatible
 	github.com/coreos/go-semver v0.3.0 // indirect

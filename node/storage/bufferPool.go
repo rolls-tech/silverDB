@@ -137,6 +137,22 @@ func (b *DataBuffer) ReadData(dataBase,tableName,tagKv,fieldKey string,startTime
     return kv
 }
 
+// To-do  snapshot read buffer data
+func (b *DataBuffer) readBuffer() map[int64]float64 {
+	kv:=make(map[int64]float64)
+	return kv
+}
+
+//To-do encoded SeriesKey
+func (b *DataBuffer) encodedSeriesKey() {
+
+
+}
+
+
+
+
+
 
 func (b *DataBuffer) writeBuffer(wp *point.WritePoint, tagKv string) error {
 	b.mutex.Lock()

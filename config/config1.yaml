@@ -1,4 +1,5 @@
 nodeName: "node1"
+nodeId: 1
 nodeAddr:
   httpAddr: "127.0.0.1:12345"
   cluAddr: "127.0.0.1:7947"
