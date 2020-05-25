@@ -56,6 +56,8 @@ type compressPoints struct {
 	chunk compress.Chunk
 	fieldKey string
 	count int
+	maxValue float64
+	minValue float64
 }
 
 
@@ -358,8 +360,6 @@ func (s *kv) filterDataList(value *point.Value,filterDataList filterDataList) {
 		}
 	}
 }
-
-
 
 
 

@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"fmt"
 	"github.com/golang/snappy"
 	"io/ioutil"
 	"log"
@@ -49,12 +50,9 @@ func(w *Wal) writeData(data *walData) error {
 func (w *Wal) writeWal(data *walData) (bool,error) {
 		timestamp:=utils.Int64ToByte(data.timestamp)
 	    sequenceId:=utils.Int64ToByte(data.sequenceId)
-	    buf:=make([]byte, len(timestamp)+len(sequenceId)+len(data.data))
-	    buf=append(buf,timestamp...)
-	    buf=append(buf,sequenceId...)
-	    buf=append(buf,data.data...)
-	    buf=append(buf,'\n')
-	    getWp:=snappy.Encode(nil,buf)
+	    walData:=[]byte(fmt.Sprintf("%s%s%d,%s",sequenceId,timestamp,len(data.data),data.data))
+	    walData=append(walData,'\n')
+	    getWp:=snappy.Encode(nil,walData)
 	    walFile,n:=w.getWalFile()
 	    exist:=utils.CheckFileIsExist(walFile)
 	if !exist {

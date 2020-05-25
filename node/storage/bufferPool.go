@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"crypto/md5"
 	"github.com/golang/protobuf/proto"
 	"log"
 	"silver/config"
@@ -30,6 +31,8 @@ type metricData struct {
 	maxTime int64
 	minTime int64
 	count   int
+	minValue float64
+	maxValue float64
 }
 
 type dataNodeLinked struct {
@@ -144,14 +147,15 @@ func (b *DataBuffer) readBuffer() map[int64]float64 {
 }
 
 //To-do encoded SeriesKey
-func (b *DataBuffer) encodedSeriesKey() {
-
-
+func (b *DataBuffer) encodedSeriesKey(seriesKey string) string {
+	if len(seriesKey) > 0 {
+		md:=md5.New()
+		md.Write([]byte(seriesKey))
+		result:=md.Sum([]byte(""))
+		return string(result)
+	}
+    return ""
 }
-
-
-
-
 
 
 func (b *DataBuffer) writeBuffer(wp *point.WritePoint, tagKv string) error {
@@ -160,7 +164,11 @@ func (b *DataBuffer) writeBuffer(wp *point.WritePoint, tagKv string) error {
 	var e error
 	if wp != nil {
 		seriesKey := wp.DataBase + wp.TableName + tagKv
-		dn, ok := b.buffer[seriesKey]
+		mdSeriesKey:=b.encodedSeriesKey(seriesKey)
+		if len(mdSeriesKey) <= 0 {
+			return e
+		}
+		dn, ok := b.buffer[mdSeriesKey]
 		var currentNode *dataNode
 		if ok {
 			node := b.sequenceTraversal(dn)
@@ -172,7 +180,7 @@ func (b *DataBuffer) writeBuffer(wp *point.WritePoint, tagKv string) error {
 			}
 		} else {
 			dn = initDataNodeLinked(wp.DataBase, wp.TableName, tagKv, wp.Tags)
-			b.buffer[seriesKey] = dn
+			b.buffer[mdSeriesKey] = dn
 			currentNode=dn.head
 		}
 		if wp.Value != nil {

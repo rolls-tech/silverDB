@@ -27,4 +27,3 @@ func (sm SortMap) Less(i,j int) bool {
 func (sm SortMap) Swap(i,j int) {
 	sm[i],sm[j]=sm[j],sm[i]
 }
-
