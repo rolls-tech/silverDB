@@ -56,8 +56,10 @@ type compressPoints struct {
 	chunk compress.Chunk
 	fieldKey string
 	count int
-	maxValue float64
-	minValue float64
+	maxValue []byte
+	minValue []byte
+	metricType int32
+	precision int32
 }
 
 
@@ -109,7 +111,7 @@ func (s *kv) writeDataKv(dataBase,table,tagKv string,nodeData []*metricData) {
 					}
 				} else {
 					nodeMetricData.metricData=make(map[string]*metricData,0)
-					nodeMetricData.metricData[data.metric]=newMetricData(data.metric,data.points)
+					nodeMetricData.metricData[data.metric]=newMetricData(data.metric,data.points,data.metricType,data.precision)
 					nodeMetricData.metricData[data.metric].count+=data.count
 					nodeMetricData.metricData[data.metric].minTime=data.minTime
 					nodeMetricData.metricData[data.metric].maxTime=data.maxTime
@@ -154,7 +156,7 @@ func (s *kv) splitData(nodeMetricData *nodeMetricData) map[string][]*metricData 
 				   dataList,ok:=fieldKeyData[metric]
 				   if ok {
 				   	   tmpPoints:=data.points[k*s.compressCount:(k+1)*s.compressCount]
-				   	   tmpMetricData:=newMetricData(metric,tmpPoints)
+				   	   tmpMetricData:=newMetricData(metric,tmpPoints,data.metricType,data.precision)
 					   tmpMetricData.minTime=tmpPoints[0].T
 					   tmpMetricData.maxTime=tmpPoints[len(tmpPoints) -1].T
 					   tmpMetricData.count=len(tmpPoints)
@@ -162,7 +164,7 @@ func (s *kv) splitData(nodeMetricData *nodeMetricData) map[string][]*metricData 
 				   } else {
 					   dataList=make([]*metricData,0)
 					   tmpPoints:=data.points[k*s.compressCount:(k+1)*s.compressCount]
-					   tmpMetricData:=newMetricData(metric,tmpPoints)
+					   tmpMetricData:=newMetricData(metric,tmpPoints,data.metricType,data.precision)
 					   tmpMetricData.minTime=tmpPoints[0].T
 					   tmpMetricData.maxTime=tmpPoints[len(tmpPoints) -1].T
 					   tmpMetricData.count=len(tmpPoints)
@@ -172,7 +174,7 @@ func (s *kv) splitData(nodeMetricData *nodeMetricData) map[string][]*metricData 
 			   }
 		       if n > 0 {
 				   tmpPoints:=data.points[m*s.compressCount:]
-				   tmpMetricData:=newMetricData(metric,tmpPoints)
+				   tmpMetricData:=newMetricData(metric,tmpPoints,data.metricType,data.precision)
 				   tmpMetricData.minTime=tmpPoints[0].T
 				   tmpMetricData.maxTime=tmpPoints[len(tmpPoints) -1].T
 				   tmpMetricData.count=len(tmpPoints)
@@ -232,14 +234,14 @@ func (s *kv) setDataFile(dataBase,tableName string,fieldKeyDataList map[string][
 							   tmpPoints=append(tmpPoints,data.points[index2])
 							   _,ok:=tableFileDataList[tableFile]
 							   if ok {
-							   	  tmpMetricData:=newMetricData(fieldKey,tmpPoints)
+							   	  tmpMetricData:=newMetricData(fieldKey,tmpPoints,data.metricType,data.precision)
 							   	  tmpMetricData.count=len(tmpPoints)
 							   	  tmpMetricData.minTime=startTime
 							   	  tmpMetricData.maxTime=endTime
 							   	  tableFileDataList[tableFile]=append(tableFileDataList[tableFile],tmpMetricData)
 							   } else {
 							   	  metricDataList:=make([]*metricData,0)
-								  tmpMetricData:=newMetricData(fieldKey,tmpPoints)
+								  tmpMetricData:=newMetricData(fieldKey,tmpPoints,data.metricType,data.precision)
 								  tmpMetricData.count=len(tmpPoints)
 								  tmpMetricData.minTime=startTime
 								  tmpMetricData.maxTime=endTime
@@ -295,7 +297,11 @@ func (cd ChunkDataList) Swap(i,j int) {
 
 type filterData struct {
 	version int64
-	kv map[int64]float64
+	kv map[int64][]byte
+	datatype int32
+	precision int32
+	maxValue []byte
+	minValue []byte
 }
 
 type filterDataList []*filterData
@@ -316,7 +322,7 @@ func (f filterDataList) Swap(i,j int) {
 func newFilterData() *filterData {
 	return &filterData{
 		version: 0,
-		kv:      make(map[int64]float64,0),
+		kv:      make(map[int64][]byte,0),
 	}
 }
 
@@ -325,6 +331,10 @@ func (s *kv) filterChunkDataList(chunkDataList ChunkDataList,startTime,endTime i
 	if len(chunkDataList) > 0 {
 		sort.Sort(chunkDataList)
 		filterDataList:=make([]*filterData,0)
+		data.precision=chunkDataList[0].precision
+		data.datatype=chunkDataList[0].metricType
+		data.maxValue=chunkDataList[0].maxValue
+		data.minValue=chunkDataList[0].minValue
 		for _,chunkData:=range chunkDataList {
 			filterData:=newFilterData()
 			filterData.version=utils.ByteToInt64(chunkData.timestamp)
@@ -333,15 +343,24 @@ func (s *kv) filterChunkDataList(chunkDataList ChunkDataList,startTime,endTime i
 			for it.Next() {
 				tt,vv:=it.At()
 				if tt >= startTime && tt <= endTime {
-					 filterData.kv[tt]=vv
+					 bv:=utils.Float64ToByte(vv)
+					 if bytes.Compare(bv,data.minValue) <= 0 {
+					 	data.minValue=bv
+					 }
+					 if bytes.Compare(bv,data.maxValue) >= 0 {
+					 	data.maxValue=bv
+					 }
+					 filterData.kv[tt]=bv
 				}
 			}
 			filterDataList=append(filterDataList,filterData)
 		}
 		if len(filterDataList) > 0 {
-			kv:=make(map[int64]float64,0)
+			kv:=make(map[int64][]byte,0)
 			for _,filterData:=range filterDataList {
-				 kv=mergeMap(filterData.kv,kv)
+				 if filterData.kv !=nil && filterData.version > 0 {
+					 kv=mergeMap(filterData.kv,kv)
+				 }
 			}
 			data.kv=kv
 			data.version=filterDataList[len(filterDataList)-1].version
@@ -352,15 +371,17 @@ func (s *kv) filterChunkDataList(chunkDataList ChunkDataList,startTime,endTime i
 }
 
 
-func (s *kv) filterDataList(value *point.Value,filterDataList filterDataList) {
+func (s *kv) filterDataList(value *point.Metric,filterDataList filterDataList) {
 	if len(filterDataList) > 0 {
 		sort.Sort(filterDataList)
 		for _,filterData:=range filterDataList {
-			value.Kv=mergeMap(filterData.kv,value.Kv)
+			if len(filterData.kv) > 0 && filterData.version > 0 {
+				value.Metric=mergeMap(filterData.kv,value.Metric)
+			}
 		}
+		value.MetricType=filterDataList[0].datatype
 	}
 }
-
 
 
 func (s *kv) readData(dataBase,tableName,tagKv,fieldKey string,startTime,endTime int64) [][]byte {
@@ -374,8 +395,9 @@ func (s *kv) readData(dataBase,tableName,tagKv,fieldKey string,startTime,endTime
 			tableFile:=k
 			wg.Add(1)
 			go func(wg *sync.WaitGroup) {
-				value:=&point.Value {
-					Kv: make(map[int64]float64,0),
+				metric:=&point.Metric {
+					Metric:               make(map[int64][]byte,0),
+					MetricType:           0,
 				}
 				if s.isCompressed == true {
 					chunkDataGroup,db:=readKv(tableFile,tagKv,fieldKey,startTime,endTime)
@@ -393,15 +415,11 @@ func (s *kv) readData(dataBase,tableName,tagKv,fieldKey string,startTime,endTime
 							wg.Wait()
 						}
 						if len(dataList) > 0 {
-							s.filterDataList(value,dataList)
+							s.filterDataList(metric,dataList)
 						}
 					}
 				}
-				/*if s.isCompressed ==false {
-					db:=scanKv(tableFile,tagKv,fieldKey,value,startTime,endTime)
-					defer db.Close()
-				}*/
-				buf,e:=proto.Marshal(value)
+				buf,e:=proto.Marshal(metric)
 				if e !=nil {
 					log.Println(e.Error())
 				}
@@ -454,9 +472,19 @@ func (s *kv) compressData(metricData *metricData) *compressPoints{
 	if err != nil {
 		log.Println(err)
 	}
+	var minValue []byte
+	var maxValue []byte
 	if len(metricData.points) > 0 {
+		minValue=metricData.points[0].V
+		maxValue=metricData.points[0].V
 		for _,p:=range metricData.points {
-			app.Append(p.T, p.V)
+            if bytes.Compare(p.V,minValue) < 0 {
+            	minValue=p.V
+			}
+			if bytes.Compare(p.V,maxValue) >= 0 {
+				maxValue=p.V
+			}
+            app.Append(p.T, utils.ByteToFloat64(p.V))
 		}
 	}
 	return &compressPoints {
@@ -465,6 +493,10 @@ func (s *kv) compressData(metricData *metricData) *compressPoints{
 		chunk:    chunk,
 		fieldKey: metricData.metric,
 		count: metricData.count,
+		metricType: metricData.metricType,
+		precision: metricData.precision,
+		minValue:minValue,
+		maxValue:maxValue,
 	}
 }
 
@@ -494,6 +526,7 @@ type timeRange struct {
 	startTime int64
 	endTime int64
 }
+
 
 func newTimeRange(startTime,endTime int64) timeRange {
 	return timeRange {
@@ -564,6 +597,7 @@ func (s *kv) spiltTimeRange(minTime,maxTime int64) []timeRange {
 	}
 	return timeRangeList
 }
+
 
 func (s *kv) scanDataDir(dataBase,tableName string,minTime,maxTime int64) map[string]timeRange {
 	timeRangeList:=s.spiltTimeRange(minTime,maxTime)
@@ -636,6 +670,7 @@ func (s *kv) scanDataDir(dataBase,tableName string,minTime,maxTime int64) map[st
     return tableFileMap
 }
 
+
 func (s *kv) dataBaseDirIsExist(dataBase string) (string,bool) {
 	for _,dir:= range s.dataDir {
 		if utils.CheckFileIsExist(dir+dataBase) {
@@ -644,6 +679,7 @@ func (s *kv) dataBaseDirIsExist(dataBase string) (string,bool) {
 	}
 	return "",false
 }
+
 
 func (s *kv) getTableFile(dataBase,tableName,startTime,endTime string) map[string]bool {
 	s.mutex.RLock()

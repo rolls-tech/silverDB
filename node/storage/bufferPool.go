@@ -28,11 +28,13 @@ type dataNode struct {
 type metricData struct {
 	metric  string
 	points  []utils.Point
+	metricType int32
 	maxTime int64
 	minTime int64
 	count   int
-	minValue float64
-	maxValue float64
+	minValue []byte
+	maxValue []byte
+	precision int32
 }
 
 type dataNodeLinked struct {
@@ -79,10 +81,12 @@ func newDataNode() *dataNode {
 	}
 }
 
-func newMetricData(metric string, points []utils.Point) *metricData {
-	return &metricData{
+func newMetricData(metric string, points []utils.Point,metricType,precision int32) *metricData {
+	return &metricData {
 		metric: metric,
 		points: points,
+		metricType: metricType,
+		precision: precision,
 	}
 }
 
@@ -125,19 +129,19 @@ func (b *DataBuffer) WriteData(wp *point.WritePoint, tagKv string) error {
 }
 
 
-func (b *DataBuffer) ReadData(dataBase,tableName,tagKv,fieldKey string,startTime,endTime int64) map[int64]float64 {
-	var value point.Value
-	kv:=make(map[int64]float64)
+func (b *DataBuffer) ReadData(dataBase,tableName,tagKv,fieldKey string,startTime,endTime int64) (map[int64][]byte,int32) {
+	var metric point.Metric
+	kv:=make(map[int64][]byte)
     dataSet:=b.readData(dataBase,tableName,tagKv,fieldKey,startTime,endTime)
-	if len(dataSet) != 0 {
+	if len(dataSet) > 0 {
 		for _,data:=range dataSet {
 			if len(data) !=0 {
-				_=proto.Unmarshal(data,&value)
-				kv=mergeMap(kv,value.Kv)
+				_=proto.Unmarshal(data,&metric)
+				kv=mergeMap(kv,metric.Metric)
 			}
 		}
 	}
-    return kv
+    return kv,metric.MetricType
 }
 
 // To-do  snapshot read buffer data
@@ -183,12 +187,12 @@ func (b *DataBuffer) writeBuffer(wp *point.WritePoint, tagKv string) error {
 			b.buffer[mdSeriesKey] = dn
 			currentNode=dn.head
 		}
-		if wp.Value != nil {
-			for key, value := range wp.Value {
-				if value.Kv != nil {
-					pointKv := utils.NewSortMap(value.Kv)
+		if wp.Metric != nil {
+			for key, value := range wp.Metric {
+				if value.Metric != nil {
+					pointKv := utils.NewSortMap(value.Metric)
 					sort.Sort(pointKv)
-					metric := newMetricData(key,pointKv)
+					metric := newMetricData(key,pointKv,value.MetricType,wp.TimePrecision)
 					metric.count = pointKv.Len()
 					metric.maxTime = pointKv[pointKv.Len()-1].T
 					metric.minTime = pointKv[0].T
@@ -266,8 +270,8 @@ func (b *DataBuffer) flush(flushCount int) {
 	}
 }
 
-func mergeMap (bv map[int64]float64,sv map[int64]float64) map[int64]float64 {
-	kv:=make(map[int64]float64,0)
+func mergeMap (bv map[int64][]byte,sv map[int64][]byte) map[int64][]byte {
+	kv:=make(map[int64][]byte,0)
 	for k,v:=range sv {
 		kv[k]=v
 	}

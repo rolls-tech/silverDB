@@ -124,8 +124,11 @@ func generateChunkData(chunk *compressPoints) ([]byte,[]byte) {
 	maxTime:=utils.Int64ToByte(chunk.maxTime)
 	timestamp:=utils.Int64ToByte(time.Now().UnixNano())
 	count:=utils.IntToByte(chunk.count)
-	bucketKey:=[]byte(fmt.Sprintf("%s%s%s%s",minTime,maxTime,timestamp,count))
-	chunkValue:=[]byte(fmt.Sprintf("%d,%s", len(chunk.chunk.Bytes()),chunk.chunk.Bytes()))
+	precision:=utils.Int32ToByte(chunk.precision)
+	metricType:=utils.Int32ToByte(chunk.metricType)
+	bucketKey:=[]byte(fmt.Sprintf("%s%s%s%s,%s,%s,%s,%s",minTime,maxTime,timestamp,metricType,precision,chunk.minValue,chunk.maxValue,count))
+	chunkValue:=[]byte(fmt.Sprintf("%d,%s",
+		len(chunk.chunk.Bytes()),chunk.chunk.Bytes()))
 	return bucketKey,chunkValue
 }
 
@@ -135,12 +138,15 @@ type chunkData struct {
  	timestamp []byte
     count []byte
 	chunk []byte
+	maxValue []byte
+	minValue []byte
+	metricType int32
+	precision int32
 }
 
 func newChunkData() *chunkData {
 	return &chunkData{}
 }
-
 
 func resolverChunkData(keyByte,chunkByte []byte) *chunkData {
 	chunkData:=newChunkData()
@@ -148,7 +154,29 @@ func resolverChunkData(keyByte,chunkByte []byte) *chunkData {
 		minTime:=keyByte[0:8]
 		maxTime:=keyByte[8:16]
 		timestamp:=keyByte[16:24]
-		count:=keyByte[24:]
+		kb:=bytes.NewReader(keyByte[24:])
+		readerKb:=bufio.NewReader(kb)
+		suffix := make([]byte,32)
+		_,e:= io.ReadFull(readerKb,suffix)
+		if e !=nil {
+			log.Println("resolver chunk key failed !",e)
+		}
+		suffixList:=bytes.Split(suffix, []byte(","))
+		if len(suffixList) == 5 {
+			metricTypeByte:=suffixList[0]
+			precisionByte:=suffixList[1]
+			minValueByte:=suffixList[2]
+			maxValueByte:=suffixList[3]
+			countByte:=suffixList[4]
+			chunkData.minValue=minValueByte
+			chunkData.maxValue=maxValueByte
+			chunkData.count=countByte
+			chunkData.metricType=utils.ByteToInt32(metricTypeByte)
+			chunkData.precision=utils.ByteToInt32(precisionByte)
+		}
+		chunkData.minTime=minTime
+		chunkData.maxTime=maxTime
+		chunkData.timestamp=timestamp
 		rd:= bytes.NewReader(chunkByte)
 		reader:=bufio.NewReader(rd)
 		chunkLen,_:=reader.ReadString(',')
@@ -162,16 +190,10 @@ func resolverChunkData(keyByte,chunkByte []byte) *chunkData {
 		if e !=nil {
 			log.Println("resolver chunk data failed !",e)
 		}
-        chunkData.minTime=minTime
-        chunkData.maxTime=maxTime
-        chunkData.timestamp=timestamp
-        chunkData.count=count
-        chunkData.chunk=chunk
+			chunkData.chunk=chunk
+		}
 		return chunkData
 	}
-	return chunkData
-}
-
 
 func writeKv(tableFile,tagKv string,chunkList []*compressPoints) error {
 		db:=openDB(tableFile)
@@ -199,7 +221,7 @@ func writeKv(tableFile,tagKv string,chunkList []*compressPoints) error {
 }
 
 
-func readKv(tableFile,tagKv,fieldKey string,startTime,endTime int64) (map[int]ChunkDataList,*bolt.DB){
+func readKv(tableFile,tagKv,fieldKey string,startTime,endTime int64) (map[int]ChunkDataList,*bolt.DB) {
 	db:=openDB(tableFile)
 	chunkDataGroup:=make(map[int]ChunkDataList,0)
 	chunkDataGroup[1]=make(ChunkDataList,0)

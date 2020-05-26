@@ -3,9 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"math/rand"
 	"silver/node/client"
 	"silver/node/point"
+	"silver/utils"
 	"strings"
 	"sync"
 	"time"
@@ -68,24 +70,54 @@ func pipelineRun(id,batchSize,pipeLen int,result *result,wg *sync.WaitGroup) {
 		value := fmt.Sprintf("%s%d", valuePrefix, tmp)
 		tagKv:=make(map[string]string,0)
 		tagKv[key]=value
-		kv:=make(map[int64]float64,0)
-		for n:=0; n < batchSize ; n++ {
-			kv[time.Now().UnixNano()+int64(n)] =float64(n)
-		}
-		v:=&point.Value {
-			Kv:kv,
-		}
-		filedKv:=make(map[string]*point.Value)
-		filedKv[key]=v
-		filedKv["aaa"]=v
-		filedKv["bbb"]=v
-		filedKv["ccc"]=v
+
+		//point
 		wp:=&point.WritePoint {
 			DataBase:             key,
 			TableName:            value,
 			Tags:                 tagKv,
-			Value:                filedKv,
+			TimePrecision:        utils.NS,
 		}
+		//metric value
+		vv:=make(map[int64][]byte,0)
+		switch wp.TimePrecision {
+		case utils.S:
+			for n:=0; n < batchSize ; n++ {
+				t:=(time.Now().UnixNano()+int64(n)) / 1000000000
+				vv[t] = utils.Float64ToByte(float64(n))
+			}
+			break
+		case utils.NS:
+			for n:=0; n < batchSize ; n++ {
+				vv[time.Now().UnixNano()+int64(n)] = utils.Float64ToByte(float64(n))
+			}
+			break
+		case utils.MS:
+			for n:=0; n < batchSize ; n++ {
+				t:=(time.Now().UnixNano()+int64(n)) / 1000000
+				vv[t] = utils.Float64ToByte(float64(n))
+			}
+			break
+		case utils.US:
+			for n:=0; n < batchSize ; n++ {
+				t:=(time.Now().UnixNano()+int64(n))/ 1000
+				vv[t] = utils.Float64ToByte(float64(n))
+			}
+			break
+		default:
+			log.Println("not support time precision ! ",wp.TimePrecision)
+		}
+		//metric type
+		metric:= &point.Metric{
+			Metric:               vv,
+			MetricType:           utils.Double,
+		}
+		//metric kv
+		metricKv:=make(map[string]*point.Metric)
+		metricKv["m1"]=metric
+
+		wp.Metric=metricKv
+
 		writeList=append(writeList,wp)
 	}
 	start := time.Now()

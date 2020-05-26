@@ -131,8 +131,8 @@ func (n *Index) generateIndexNode(wp *point.WritePoint,sortTagKv string) *indexN
 					indexTags.tags[sortTagKv]=newIndexMetric()
 					metrics=indexTags.tags[sortTagKv]
 				}
-				if wp.Value !=nil {
-					for key,_:=range wp.Value {
+				if wp.Metric !=nil {
+					for key,_:=range wp.Metric {
 						metrics.metric[key]=true
 					}
 				}
@@ -184,8 +184,8 @@ func (n *Index) updateMemData(wp *point.WritePoint,sortTagKv string) error {
 				if ok {
 					metric,ok:=indexTags.tags[sortTagKv]
 					if ok {
-						if wp.Value !=nil {
-							for key,_:=range wp.Value {
+						if wp.Metric !=nil {
+							for key,_:=range wp.Metric {
 								_,ok:=metric.metric[key]
 								if !ok {
 									metric.metric[key]=true
@@ -195,8 +195,8 @@ func (n *Index) updateMemData(wp *point.WritePoint,sortTagKv string) error {
 					} else {
 						indexTags.tags[sortTagKv]=newIndexMetric()
 						metric,_:=indexTags.tags[sortTagKv]
-						if wp.Value !=nil {
-							for key,_:=range wp.Value {
+						if wp.Metric !=nil {
+							for key,_:=range wp.Metric {
 								metric.metric[key]=true
 							}
 						}
@@ -206,8 +206,8 @@ func (n *Index) updateMemData(wp *point.WritePoint,sortTagKv string) error {
 					node.indexTag[tag]=newIndexTags()
 					node.indexTag[tag].tags[sortTagKv]=newIndexMetric()
 					metric:=node.indexTag[tag].tags[sortTagKv]
-					if wp.Value != nil {
-						for key,_:=range wp.Value {
+					if wp.Metric != nil {
+						for key,_:=range wp.Metric {
 							metric.metric[key]=true
 						}
 					}

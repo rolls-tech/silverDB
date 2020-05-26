@@ -5,10 +5,10 @@ type SortMap []Point
 
 type Point struct {
 	T int64
-	V float64
+	V []byte
 }
 
-func NewSortMap(m map[int64]float64) SortMap {
+func NewSortMap(m map[int64][]byte) SortMap {
 	sm:=make(SortMap,0,len(m))
 	for k,v:=range m {
 		sm=append(sm,Point{k,v})

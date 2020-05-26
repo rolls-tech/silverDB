@@ -6,18 +6,20 @@ message writePoint {
     string dataBase=1;
     string tableName=2;
     map<string,string> tags=3;
-    map<string,value> value=4;
+    map<string,metric> metric=4;
+    int32 timePrecision=5;
 }
 
-message value {
-    map<int64,double> kv=1;
+message metric {
+    map<int64,bytes> metric = 1;
+    int32 metricType = 2;
 }
 
 message readPoint {
     string dataBase=1;
     string tableName=2;
     map<string,string> tags=3;
-    map<string,value> metrics=4;
+    map<string,metric> metrics=4;
     int64 startTime=5;
     int64 endTime=6;
 }

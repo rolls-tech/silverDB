@@ -71,7 +71,6 @@ func (s *Server) process(conn net.Conn) {
 		}
 }
 
-
 func (s *Server) writeRequest(ch chan chan bool,conn net.Conn, request *bufio.Reader) {
 	    c:=make(chan bool,0)
 	    ch <- c
@@ -82,7 +81,7 @@ func (s *Server) writeRequest(ch chan chan bool,conn net.Conn, request *bufio.Re
 		}
 	    if wp != nil  {
 	    	    go func() {
-					e=s.WriteTsData(wp,tagKv,buf,len(buf),time.Now().Unix(),0)
+					e=s.WriteTsData(wp,tagKv,buf,len(buf),time.Now().UnixNano(),0)
 					if e != nil {
 						log.Println(s.Addr()+ " write data failed !" ,e)
 						c <- false

@@ -1,23 +1,33 @@
 package main
 
 import (
-	"crypto/md5"
 	"log"
+	"silver/utils"
+	_ "time"
 )
 
-func encodedSeriesKey(seriesKey string) {
-	if len(seriesKey) > 0 {
-		md:=md5.New()
-		md.Write([]byte(seriesKey))
-		result:=md.Sum([]byte(""))
-		log.Println(result)
-		log.Println(len(string(result)))
-	}
-
-}
-
 func main() {
-	s:="eweweadsadadasadsadadsadsadsadasdsadad"
-	log.Println(len(s))
-	encodedSeriesKey(s)
+
+
+	/*count:=utils.ByteToInt(countByte)
+	switch utils.ByteToInt32(metricTypeByte) {
+	case utils.Int:
+		minValue:=utils.ByteToInt32(minValueByte)
+		maxVlaue:=utils.ByteToInt32(maxValueByte)
+	case utils.Long:
+		minValue:=utils.ByteToInt64(minValueByte)
+		maxVlaue:=utils.ByteToInt64(maxValueByte)
+	case utils.Float:
+		minValue:=utils.ByteToFloat32(minValueByte)
+		maxVlaue:=utils.ByteToFloat32(maxValueByte)
+	case utils.Double:
+		minValue:=utils.ByteToFloat64(minValueByte)
+		maxVlaue:=utils.ByteToFloat64(maxValueByte)
+	case utils.Bool:
+		minValue:=minValueByte
+		maxVlaue:=maxValueByte
+	default:
+		log.Println("not support data type !", utils.ByteToInt32(metricTypeByte))
+	}*/
+    log.Println(utils.TransDataType(123.1121212))
 }

@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"silver/node/point"
+	"silver/utils"
 	"strconv"
 	"strings"
 	"sync"
@@ -204,7 +205,25 @@ func (c *client) processReadResponse() {
 			log.Println(" readPoint deserialization failed ! ",e.Error())
 			return
 		}
-		log.Println(data)
+		for _,value:=range data.Metrics {
+			for tt,vv:=range value.Metric {
+				log.Println(tt,utils.ByteToFloat32(vv),value.MetricType)
+				/*switch value.MetricType {
+				case utils.Double:
+					log.Println(tt,utils.ByteToFloat64(vv))
+					break
+				case utils.Float:
+					log.Println(tt,utils.ByteToFloat32(vv))
+					break
+				case utils.Long:
+					log.Println(tt,utils.ByteToInt64(vv))
+					break
+				case utils.Int:
+					log.Println(tt,utils.ByteToInt32(vv))
+					break
+				}*/
+			}
+		}
 	}
 	return
 }
@@ -233,3 +252,4 @@ func readLen(r *bufio.Reader) string {
 	}
 	return strings.ReplaceAll(tmp, ",", "")
 }
+
