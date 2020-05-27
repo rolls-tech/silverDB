@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"silver/node/client"
 	"silver/node/point"
 	"silver/utils"
@@ -24,49 +23,44 @@ func main() {
 		TimePrecision:        utils.NS,
 	}
 
-	dataType:=utils.Int
-
 	//metric value
-	value:=make(map[int64][]byte,0)
-	switch wp.TimePrecision {
-	case utils.S:
-		for n:=0; n < 10000 ; n++ {
-			t:=(time.Now().UnixNano()+int64(n)) / 1000000000
+	value1:=make(map[int64][]byte,0)
+	value2:=make(map[int64][]byte,0)
 
-			value[t] = utils.Float64ToByte(float64(n))
-		}
-		break
-	case utils.NS:
-		for n:=0; n < 10000 ; n++ {
-			value[time.Now().UnixNano()+int64(n)] = utils.Float64ToByte(float64(n))
-		}
-		break
-	case utils.MS:
-		for n:=0; n < 10000 ; n++ {
-			t:=(time.Now().UnixNano()+int64(n)) / 1000000
-			value[t] = utils.Float64ToByte(float64(n))
-		}
-		break
-	case utils.US:
-		for n:=0; n < 10000 ; n++ {
-			t:=(time.Now().UnixNano()+int64(n))/ 1000
-			value[t] = utils.Float64ToByte(float64(n))
-		}
-		break
-	default:
-		log.Println("not support time precision ! ",wp.TimePrecision)
+	var metricType1 int32
+	var metricType2 int32
+
+	for n:=0; n < 10000 ; n++ {
+		tt:=time.Now().UnixNano()+int64(n)
+		data,dataType:=utils.TransDataType(n)
+		value1[tt]=data
+		metricType1=dataType
+	}
+
+
+	for n:=0; n < 10000 ; n++ {
+		tt:=time.Now().UnixNano()+int64(n)
+		data,dataType:=utils.TransDataType(12323.21212121)
+		value2[tt]=data
+		metricType2=dataType
 	}
 
 	//metric type
-	metric:= &point.Metric {
-		Metric:               value,
-		MetricType:           utils.Double,
+	metric1:= &point.Metric {
+		Metric:               value1,
+		MetricType:           metricType1,
+	}
+
+	//metric type
+	metric2:= &point.Metric {
+		Metric:               value2,
+		MetricType:           metricType2,
 	}
 
 	//metric kv
 	metricKv:=make(map[string]*point.Metric)
-	metricKv["m1"]=metric
-
+	metricKv["m1"]=metric1
+	metricKv["m2"]=metric2
 	wp.Metric=metricKv
 
 	tc:=client.NewClient("127.0.0.1:12346")

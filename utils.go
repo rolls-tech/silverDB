@@ -2,7 +2,7 @@ package main
 
 import (
 	"log"
-	"silver/utils"
+	"strings"
 	_ "time"
 )
 
@@ -29,5 +29,10 @@ func main() {
 	default:
 		log.Println("not support data type !", utils.ByteToInt32(metricTypeByte))
 	}*/
-    log.Println(utils.TransDataType(123.1121212))
+
+	n:=strings.LastIndex("a1=vv3;b2=vv4;c3=kk3;m1",";")
+	log.Println(len("a1=vv3;b2=vv4;c3=kk3;m1"))
+	log.Println(n)
+    log.Println("a1=vv3;b2=vv4;c3=kk3;m1"[21:])
+	log.Println("a1=vv3;b2=vv4;c3=kk3;m1"[:21])
 }

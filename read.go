@@ -14,8 +14,8 @@ func main() {
 		TableName:             "table1",
 		Tags:                 tags,
 		Metrics:              nil,
-		StartTime:            1590483914835050800,
-		EndTime:              1590570314835050800,
+		StartTime:            1590558558660006400,
+		EndTime:              1590644958660006400,
 	}
 	config:=config.LoadConfigInfo("config/config1.yaml")
 	tc:=client.NewClient(config.NodeAddr.TcpAddr)

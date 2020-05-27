@@ -110,7 +110,6 @@ func (s *kv) writeDataKv(dataBase,table,tagKv string,nodeData []*metricData) {
 						fieldData.maxTime=data.maxTime
 					}
 				} else {
-					nodeMetricData.metricData=make(map[string]*metricData,0)
 					nodeMetricData.metricData[data.metric]=newMetricData(data.metric,data.points,data.metricType,data.precision)
 					nodeMetricData.metricData[data.metric].count+=data.count
 					nodeMetricData.metricData[data.metric].minTime=data.minTime
@@ -377,9 +376,9 @@ func (s *kv) filterDataList(value *point.Metric,filterDataList filterDataList) {
 		for _,filterData:=range filterDataList {
 			if len(filterData.kv) > 0 && filterData.version > 0 {
 				value.Metric=mergeMap(filterData.kv,value.Metric)
+				value.MetricType=filterData.datatype
 			}
 		}
-		value.MetricType=filterDataList[0].datatype
 	}
 }
 
@@ -477,6 +476,7 @@ func (s *kv) compressData(metricData *metricData) *compressPoints{
 	if len(metricData.points) > 0 {
 		minValue=metricData.points[0].V
 		maxValue=metricData.points[0].V
+		dataType:=metricData.metricType
 		for _,p:=range metricData.points {
             if bytes.Compare(p.V,minValue) < 0 {
             	minValue=p.V
@@ -484,7 +484,7 @@ func (s *kv) compressData(metricData *metricData) *compressPoints{
 			if bytes.Compare(p.V,maxValue) >= 0 {
 				maxValue=p.V
 			}
-            app.Append(p.T, utils.ByteToFloat64(p.V))
+            app.Append(p.T, utils.TransByteToFloat64(dataType,p.V))
 		}
 	}
 	return &compressPoints {

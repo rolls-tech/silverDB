@@ -156,10 +156,12 @@ func resolverChunkData(keyByte,chunkByte []byte) *chunkData {
 		timestamp:=keyByte[16:24]
 		kb:=bytes.NewReader(keyByte[24:])
 		readerKb:=bufio.NewReader(kb)
-		suffix := make([]byte,32)
+		suffix := make([]byte, len(keyByte[24:]))
 		_,e:= io.ReadFull(readerKb,suffix)
 		if e !=nil {
-			log.Println("resolver chunk key failed !",e)
+			if e != io.EOF {
+				log.Println("resolver chunk key failed !",e)
+			}
 		}
 		suffixList:=bytes.Split(suffix, []byte(","))
 		if len(suffixList) == 5 {

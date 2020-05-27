@@ -310,9 +310,9 @@ func (n *Index) writeIndexKv(node *indexNode) error {
 					for tagKv,metric:= range indexMetrics.tags {
 					   	if metric.metric != nil {
 					   		for k,_:=range metric.metric {
-								err = tagTable.Put([]byte(tagKv), []byte(k))
+								err = tagTable.Put([]byte(tagKv+k), []byte(k))
 								if err != nil {
-									log.Println("write index and tag failed !"+tagKv+" : "+k)
+									log.Println("write index and tag failed ! "+tagKv+" : "+k)
 									return err
 								}
 							}
@@ -350,14 +350,18 @@ func scanIndexKv(indexFile string,databaseName string,readData map[string]*index
 			   	    }
 			   	    t:=tx.Bucket(tableName).Bucket(tag)
 			   	    t.ForEach(func(tagKv,metric []byte) error {
-						metrics,ok:=tags.tags[string(tagKv)]
+			   	    	key:=string(tagKv)
+						n:=strings.LastIndex(key,";")
+						v:=key[n+1:]
+						k:=key[:n+1]
+						metrics,ok:=tags.tags[k]
 						if !ok {
-							tags.tags[string(tagKv)]=newIndexMetric()
-							metrics=tags.tags[string(tagKv)]
+							tags.tags[k]=newIndexMetric()
+							metrics=tags.tags[k]
 						}
-						_,ok=metrics.metric[string(metric)]
+						_,ok=metrics.metric[v]
 						if !ok {
-							metrics.metric[string(metric)]=true
+							metrics.metric[v]=true
 						}
                         return nil
 					})

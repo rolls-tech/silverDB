@@ -31,16 +31,15 @@ func (e *engine) ReadTsData(readPoint *point.ReadPoint,tagKv string,c chan *poin
     	c <- &point.ReadPoint{}
 	}
     if tagsMetrics != nil {
+		rp:=&point.ReadPoint {
+			DataBase:             readPoint.DataBase,
+			TableName:            readPoint.TableName,
+			Tags:                 make(map[string]string,0),
+			Metrics:              make(map[string]*point.Metric,0),
+			StartTime:            readPoint.StartTime,
+			EndTime:              readPoint.EndTime,
+		}
 	   for tagKv,metrics:=range tagsMetrics {
-	   	   rp:=&point.ReadPoint{
-			   DataBase:             readPoint.DataBase,
-			   TableName:            readPoint.TableName,
-			   Tags:                 make(map[string]string,0),
-			   Metrics:              make(map[string]*point.Metric,0),
-			   StartTime:            readPoint.StartTime,
-			   EndTime:              readPoint.EndTime,
-		   }
-
 	   	   if metrics !=nil && len(metrics) > 0 {
 	   	   	   for _,metric:=range metrics {
 				   kv,dataType:=e.buffer.ReadData(rp.DataBase,rp.TableName,tagKv,metric,rp.StartTime,rp.EndTime)
