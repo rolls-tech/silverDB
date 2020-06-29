@@ -24,7 +24,7 @@ func init() {
 	flag.IntVar(&batchSize, "n", 10000, "number of point every pipeline")
 	flag.IntVar(&valueSize, "d", 2, "data size of SET/GET value in bytes")
 	flag.IntVar(&threads, "c", 20, "number of parallel connections")
-	flag.IntVar(&keyspaceLen, "r", 30, "keyspaceLen,use random keys from 0 to keyspaceLen-1")
+	flag.IntVar(&keyspaceLen, "r", 20, "keyspaceLen,use random keys from 0 to keyspaceLen-1")
 	flag.IntVar(&pipeLen, "P", 10, "pipeline length")
 	flag.Parse()
 	fmt.Println("type is", typ)
@@ -129,23 +129,29 @@ func pipelineRun(id,batchSize,pipeLen int,result *result,wg *sync.WaitGroup) {
 }
 
 func main() {
-	res := &result{make([]statistic, 0)}
-	start := time.Now()
-	var wg sync.WaitGroup
-	for i := 0; i < threads; i++ {
-		wg.Add(1)
-		go pipelineRun(i,batchSize,pipeLen,res,&wg)
+
+	for nn:=0; nn< 10; nn++ {
+		res := &result{make([]statistic, 0)}
+		start := time.Now()
+		var wg sync.WaitGroup
+		for i := 0; i < threads; i++ {
+			wg.Add(1)
+			go pipelineRun(i,batchSize,pipeLen,res,&wg)
+		}
+		wg.Wait()
+		fmt.Printf("start " +"%d threads to run , every thread process %d ponits\n",threads,batchSize*pipeLen)
+		d := time.Now().Sub(start)
+		statCountSum := 0
+		statTimeSum := time.Duration(0)
+		for i := 0; i < threads; i++ {
+			statCountSum  +=res.statBuckets[i].count
+			statTimeSum += res.statBuckets[i].time
+		}
+		fmt.Printf("%d usec average for each request\n", int64(statTimeSum/time.Microsecond)/int64(statCountSum))
+		fmt.Printf("throughput is %f MB/s\n", float64((statCountSum)*(valueSize+12))/1e6/d.Seconds())
+		fmt.Printf("rps is %f\n",float64(statCountSum) / d.Seconds())
+
 	}
-	wg.Wait()
-	fmt.Printf("start " +"%d threads to run , every thread process %d ponits\n",threads,batchSize*pipeLen)
-	d := time.Now().Sub(start)
-	statCountSum := 0
-	statTimeSum := time.Duration(0)
-	for i := 0; i < threads; i++ {
-		statCountSum  +=res.statBuckets[i].count
-		statTimeSum += res.statBuckets[i].time
-	}
-	fmt.Printf("%d usec average for each request\n", int64(statTimeSum/time.Microsecond)/int64(statCountSum))
-	fmt.Printf("throughput is %f MB/s\n", float64((statCountSum)*(valueSize+12))/1e6/d.Seconds())
-	fmt.Printf("rps is %f\n",float64(statCountSum) / d.Seconds())
+
+
 }

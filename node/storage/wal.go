@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bufio"
 	"fmt"
 	"github.com/golang/snappy"
 	"io/ioutil"
@@ -66,7 +67,7 @@ func (w *Wal) writeWal(data *walData) (bool,error) {
 		return false,e
 	}
 	fileSize:=fileInfo.Size()
-	if fileSize > w.maxSize * (1 << 20) {
+	if fileSize > w.maxSize * (1 << 24) {
 		walFile := w.createWalFile(n)
 		e = w.writeWalFile(walFile, getWp)
 		if e != nil {
@@ -80,14 +81,15 @@ func (w *Wal) writeWal(data *walData) (bool,error) {
 
 
 func (w *Wal) writeWalFile(walFile string,getWp []byte) error {
-	f,e:= os.OpenFile(walFile, os.O_APPEND, 0666)
+	f,e:= os.OpenFile(walFile, os.O_APPEND | os.O_WRONLY, os.ModeAppend)
 	if e !=nil {
 		log.Println("open wal file: "+walFile+" failed",e)
 		return e
 	}
 	defer f.Close()
+	writer:=bufio.NewWriter(f)
 	w.mutex.Lock()
-	n,e:=f.Write(getWp)
+	n,e:=writer.Write(getWp)
 	log.Println("write wal data size: ", n/1024,"kb")
 	if e !=nil {
 		log.Println("write wal file: "+walFile+" failed",e)

@@ -4,22 +4,22 @@ nodeAddr:
   httpAddr: "127.0.0.1:12345"
   cluAddr: "127.0.0.1:7947"
   tcpAddr: "127.0.0.1:12346"
-dataDir: ["D:\\dev\\silver\\testdata1\\","D:\\dev\\silver\\testdata2\\"]
-indexDir: ["D:\\dev\\silver\\index1\\"]
+dataDir: ["/Volumes/info/dev/silver/testdata1/","/Volumes/info/dev/silver/testdata2/"]
+indexDir: ["/Volumes/info/dev/silver/index1/"]
 wal:
-  walDir: "D:\\dev\\silver\\wal1\\"
+  walDir: "/Volumes/info/dev/silver/wal1/"
   ttl: 1
-  nodeNums: 5
-  listNums: 100
+  nodeNums: 100
+  listNums: 500
   size: 100
 flush:
   count: 5000
   ttl: 3
 heatbeat:
-  timeout: 3
-  tick: 3
+  timeout: 5
+  tick: 5
 metastore:
-  metaAddr: ["127.0.0.1:2379","127.0.0.1:2379","127.0.0.1:2379"]
+  metaAddr: ["127.0.0.1:2379"]
   metaPrefix: "/silver/metaData/"
   nodePrefix: "/sliver/node/"
   timeout : 10

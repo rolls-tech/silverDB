@@ -16,7 +16,7 @@ import (
 )
 
 func openDB(dataFile string) *bolt.DB {
-	db, err := bolt.Open (dataFile, 777, nil)
+	db, err := bolt.Open (dataFile,0600,nil)
 	if err != nil {
 		log.Println(err.Error())
 	}

@@ -7,9 +7,9 @@ import (
 )
 
 const (
-     NS =  iota
-     US
-     MS
+     NS = iota
+	 US
+	 MS
 	 S
      )
 
@@ -59,7 +59,6 @@ func TransDataType (data interface{}) ([]byte,int32) {
 	}
 	return b,dataType
 }
-
 
 func TransByteToFloat64(dataType int32, data []byte) float64 {
 	var td float64
