@@ -510,7 +510,7 @@ func search (points []utils.Point,t int64) int {
 			left=mid+1
 			mid=(left+right) / 2
 		}
-		if points[mid].T > t{
+		if points[mid].T > t {
 			right=mid-1
 			mid=(left+right) / 2
 		}

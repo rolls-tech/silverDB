@@ -23,9 +23,11 @@ require (
 	github.com/hashicorp/memberlist v0.2.0
 	github.com/influxdata/influxdb1-client v0.0.0-20200515024757-02f0bf5dbca3
 	github.com/jonboulle/clockwork v0.1.0 // indirect
+	github.com/jwilder/encoding v0.0.0-20170811194829-b4e1701a28ef
 	github.com/prometheus/client_golang v1.5.1 // indirect
 	github.com/prometheus/common v0.9.1
 	github.com/soheilhy/cmux v0.1.4 // indirect
+	github.com/tj/go-rle v0.0.0-20180508204109-877ab66bb189
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20200122045848-3419fae592fc // indirect
 	github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2 // indirect
 	go.etcd.io/bbolt v1.3.4 // indirect
