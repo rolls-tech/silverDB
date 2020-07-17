@@ -2,7 +2,7 @@ package storage
 
 import (
 	"bufio"
-	"fmt"
+	"encoding/binary"
 	"github.com/golang/snappy"
 	"io/ioutil"
 	"log"
@@ -38,27 +38,23 @@ func NewWal(config config.NodeConfig) *Wal {
 }
 
 func(w *Wal) writeData(data *walData) error {
-	//walCh:=make(chan bool,5000)
 	_,e:=w.writeWal(data)
-	/*walCh <- ok
-	w.dataBuffer.writeData(data.wp,data.tagKv,walCh)*/
 	return e
 }
 
 
-
-
 func (w *Wal) writeWal(data *walData) (bool,error) {
-		timestamp:=utils.Int64ToByte(data.timestamp)
-	    sequenceId:=utils.Int64ToByte(data.sequenceId)
-	    walData:=[]byte(fmt.Sprintf("%s%s%d,%s",sequenceId,timestamp,len(data.data),data.data))
-	    walData=append(walData,'\n')
-	    getWp:=snappy.Encode(nil,walData)
+	    dst:=make([]byte,8)
+	    binary.BigEndian.PutUint64(dst[:8],uint64(data.sequenceId))
+	    dst=append(dst,data.data...)
+	    dst=append(dst,'\n')
+	    buffer:=make([]byte, snappy.MaxEncodedLen(len(dst)))
+	    b:=snappy.Encode(buffer,dst)
 	    walFile,n:=w.getWalFile()
 	    exist:=utils.CheckFileIsExist(walFile)
 	if !exist {
 		walFile:=w.createWalFile(n)
-		e:=w.writeWalFile(walFile,getWp)
+		e:=w.writeWalFile(walFile,b)
 		return true,e
 	}
 	fileInfo,e:=os.Stat(walFile)
@@ -67,15 +63,16 @@ func (w *Wal) writeWal(data *walData) (bool,error) {
 		return false,e
 	}
 	fileSize:=fileInfo.Size()
-	if fileSize > w.maxSize * (1 << 24) {
+
+	if fileSize > w.maxSize * ( 1024 << 14 ) {
 		walFile := w.createWalFile(n)
-		e = w.writeWalFile(walFile, getWp)
+		e = w.writeWalFile(walFile, b)
 		if e != nil {
 			return false,e
 		}
 		return true,e
 	}
-	e = w.writeWalFile(walFile, getWp)
+	e = w.writeWalFile(walFile, b)
 	return true,e
 }
 
@@ -87,16 +84,17 @@ func (w *Wal) writeWalFile(walFile string,getWp []byte) error {
 		return e
 	}
 	defer f.Close()
-	writer:=bufio.NewWriter(f)
+	writer:=bufio.NewWriterSize(f,16 * 1024)
 	w.mutex.Lock()
 	n,e:=writer.Write(getWp)
-	log.Println("write wal data size: ", n/1024,"kb")
+	log.Println("write wal data size: ", n / 1024,"kb")
 	if e !=nil {
 		log.Println("write wal file: "+walFile+" failed",e)
 		return e
 	}
 	w.mutex.Unlock()
-	e=f.Sync()
+    e=writer.Flush()
+	//e=f.Sync()
 	return e
 }
 
@@ -127,6 +125,7 @@ func (w *Wal) getWalFile() (string,int) {
 		if err != nil {
 			log.Println(err)
 		}
+		//wal目录下为空的时候，则新建第一个wal文件
 		if len(fileList) == 0 {
 			walFile:=w.walDir+"_1.wal"
 			_,e:=os.Create(walFile)

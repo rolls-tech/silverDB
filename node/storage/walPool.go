@@ -27,6 +27,7 @@ type walData struct {
 	tagKv string
 	sequenceId int64
 	timestamp int64
+	created time.Time
 	operate string
 	data []byte
 	size int
@@ -78,22 +79,18 @@ func initWalNodeLinked() *walNodeLinked {
 
 
 
-func newWalData(databaseName,tableName,tagKv string,data []byte,dataLen int,timestamp int64,nodeId int64) *walData {
+func newWalData(data []byte,nodeId int64) *walData {
 	n,e:=snowflake.NewNode(nodeId)
     if e !=nil {
     	log.Println("generate wal id failed !",e)
     	return nil
 	}
     id:=n.Generate().Int64()
-	return &walData{
+	return &walData {
 		sequenceId: id,
-		timestamp:  timestamp,
 		operate:    "s",
 		data:       data,
-		size:       dataLen,
-		tagKv: tagKv,
-		databaseName: databaseName,
-		tableName:tableName,
+		created: time.Now(),
 	}
 }
 
@@ -123,24 +120,28 @@ func (wb *WalBuffer) flush() {
 				prev:=wn.head
 				for prev.next != nil {
 				   current:= prev.next
-				   if current.created.Add(wb.ttl).Before(time.Now()) {
+				         //遍历节点之中的list
 				   	     for _,data:=range current.wd.dataList {
 				   	   	   	if data != nil {
-							   e:=wb.writeData(data)
-							   if  e != nil {
-								 log.Println("write wal data failed",e)
+				   	   	   		//如果，该list中的data数据创建时间超过配置的过期时间，则进行刷写
+				   	   	   	   if data.created.Add(wb.ttl).Before(time.Now()) {
+				   	   	   	   	   //持久化到磁盘
+								   e:=wb.writeData(data)
+								   if  e != nil {
+									   log.Println("write wal data failed",e)
+								   }
+								   //更新list
+								   current.wd.dataList=current.wd.dataList[1:]
+								   //更新list大小
+								   current.wd.currentListNum=current.wd.currentListNum-1
 							   }
-							   current.wd.dataList=current.wd.dataList[1:]
-							   current.wd.currentListNum=current.wd.currentListNum-1
-							   }
-						   }
-				   }
-				   //node回收
-				  /* if current.wd.currentListNum == 0 && len(current.wd.dataList) == 0 {
+				   	   	   	}
+				   	     }
+				   // 如果当前node的list大小为空，则需要回收当前current node
+				   if current.wd.currentListNum == 0 && len(current.wd.dataList) == 0 {
 				   	      prev.next=current.next
 					      return
-				   }*/
-				   prev=prev.next
+				   }
 				}
 			}
 		}
@@ -149,9 +150,10 @@ func (wb *WalBuffer) flush() {
 
 
 
-func(wb *WalBuffer) WriteData(wp *point.WritePoint,tagKv string,data []byte,dataLen int,timestamp,id int64) {
-    node:=wb.getWalNode(wp.DataBase,wp.TableName)
-	node.wd.dataList=append(node.wd.dataList,newWalData(wp.DataBase,wp.TableName,tagKv,data,dataLen,timestamp,wb.nodeId))
+func(wb *WalBuffer) WriteData(wp *point.WritePoint,tagKv string,data []byte) {
+    //获取一个符合条件的节点，以便将数据条件到该节点的list中。
+	node:=wb.getWalNode(wp.DataBase,wp.TableName)
+	node.wd.dataList=append(node.wd.dataList,newWalData(data,wb.nodeId))
 	node.wd.currentListNum=node.wd.currentListNum+1
 }
 
@@ -163,13 +165,8 @@ func (wb *WalBuffer) getWalNode(dataBase,tableName string) *walNode {
 	wn,ok:=wb.buffer[dataBase+tableName]
 	wb.mutex.RUnlock()
     if ok {
+    	//找到一个node节点，这里默认从头节点开始遍历.
         node=wb.sequenceTraversal(wn)
-        if node.wd.currentListNum < wb.listNums {
-			return node
-		}
-        newNode=newWalNode()
-        wn.appendLinkedNode(newNode)
-		node=wb.sequenceTraversal(wn)
         return node
 	}
     wn=initWalNodeLinked()
@@ -187,7 +184,15 @@ func (wb *WalBuffer) sequenceTraversal(wn *walNodeLinked) *walNode {
 	current:=wn.head
 	for current.next != nil {
 		current=current.next
+		//如果当前节点不为空，且当前节点中walData list大小未超过已经配置的list大小，则返回该节点。
+		//否则，继续寻找下一个节点，知道下一个节点为空，则退出循环。
+		if current.wd.currentListNum < wb.listNums {
+			return current
+		}
 	}
+	// 新建一个节点，添加到莲表尾部
+	current=newWalNode()
+	wn.appendLinkedNode(current)
 	return current
 }
 

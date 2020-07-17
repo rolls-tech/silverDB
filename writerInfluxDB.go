@@ -48,7 +48,7 @@ func init() {
 }
 
 
-func readDataFile(fileIndex int,s,startSize,endSize int) client.BatchPoints {
+func readDataFile(fileIndex int,startSize,endSize int) client.BatchPoints {
 	bp, _ := client.NewBatchPoints(client.BatchPointsConfig{
 		Database:  param.dataBase,
 		Precision: "ns",
@@ -59,11 +59,10 @@ func readDataFile(fileIndex int,s,startSize,endSize int) client.BatchPoints {
 	}
 	defer fs.Close()
 	reader:=bufio.NewScanner(fs)
-	count:=s * param.batchSize
+	count:=0
 	for reader.Scan() {
+		line:=strings.ReplaceAll(reader.Text(),"\n","")
 		if count >=startSize && count < endSize {
-			line:=strings.ReplaceAll(reader.Text(),"\n","")
-			count++
 			preLine:=strings.Split(line," ")
 			tstring:=strings.Split(preLine[0],",")
 			mstring:=strings.Split(preLine[1],",")
@@ -92,6 +91,7 @@ func readDataFile(fileIndex int,s,startSize,endSize int) client.BatchPoints {
 			}
 			bp.AddPoint(pt)
 		}
+		count++
 	}
 	return bp
 }
@@ -104,7 +104,7 @@ func writeInfluxDBPoint(fileIndex int) []client.BatchPoints {
 	for s:=0; s < wpSize; s++ {
 		startSize:=s*param.batchSize
 		endSize:=startSize + param.batchSize
-		batchRecord:=readDataFile(fileIndex,s,startSize,endSize)
+		batchRecord:=readDataFile(fileIndex,startSize,endSize)
 		wpList=append(wpList,batchRecord)
 		}
 	return wpList

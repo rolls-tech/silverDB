@@ -179,6 +179,7 @@ func (n *Index) updateMemData(wp *point.WritePoint,sortTagKv string) error {
 	if wp.Tags != nil {
 		tagSet := generateTagPrefix(wp.Tags)
 		if len(tagSet) > 0 {
+			n.mu.Lock()
 			for _, tag := range tagSet {
 				indexTags,ok:=node.indexTag[tag]
 				if ok {
@@ -200,7 +201,6 @@ func (n *Index) updateMemData(wp *point.WritePoint,sortTagKv string) error {
 								metric.metric[key]=true
 							}
 						}
-
 					}
 				} else {
 					node.indexTag[tag]=newIndexTags()
@@ -213,6 +213,7 @@ func (n *Index) updateMemData(wp *point.WritePoint,sortTagKv string) error {
 					}
 				}
 			}
+			n.mu.Unlock()
 		}
 	}
 	return nil

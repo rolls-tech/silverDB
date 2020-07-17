@@ -10,6 +10,7 @@ import (
 	"silver/node/client"
 	"silver/node/point"
 	"silver/utils"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,7 +33,7 @@ var arg args
 
 func init() {
 	flag.StringVar(&(arg.dataDir), "dir", "/Volumes/info/data/", "device data dir")
-	flag.IntVar(&(arg.batchSize),"batch",5000,"write data batch size")
+	flag.IntVar(&(arg.batchSize),"batch",10000,"write data batch size")
 	flag.StringVar(&(arg.host), "host", "127.0.0.1:12346", "silverDB server address and port")
 	flag.StringVar(&(arg.dataBase), "db", "db", "silverDB databaseName")
 	flag.StringVar(&(arg.table), "table", "table", "silverDB tableName")
@@ -76,19 +77,33 @@ func newTotalRecord() *totalRecord {
 func writePoint(fileIndex int) []*point.WritePoint {
 	wpList:=make([]*point.WritePoint,0)
 	wpSize:= arg.rows / arg.batchSize
+	tmp:=make(map[string]string,0)
 	for s:=0; s < wpSize; s++ {
 		startSize:=s*arg.batchSize
 		endSize:=startSize + arg.batchSize
-	    record:=readFile(fileIndex,s,startSize,endSize)
+	    record:=readFile(fileIndex,startSize,endSize,tmp)
 	    for _,wp:=range record.points {
 			wpList=append(wpList,wp)
 		}
 	}
+	wp1:=wpList[0]
+	p1:= utils.NewSortMap(wp1.Metric["temperature"].Metric)
+	sort.Sort(p1)
+
+	for i:=1; i < len(wpList); i++ {
+		wp2:=wpList[i]
+		p2:= utils.NewSortMap(wp2.Metric["temperature"].Metric)
+		sort.Sort(p2)
+		if p1[0].T == p2[0].T {
+			log.Info(wp1.Tags,wp2.Tags,p1[0].T,p2[0].T)
+		}
+	}
+
 	return wpList
 }
 
 
-func readFile(fileIndex int,s,startSize,endSize int) *totalRecord {
+func readFile(fileIndex int,startSize,endSize int,tmp map[string]string) *totalRecord {
 	fs,err:=os.Open(arg.dataDir+"data_"+strconv.Itoa(fileIndex))
 	if err !=nil {
 		log.Fatal("open data file is failed !",err)
@@ -96,14 +111,25 @@ func readFile(fileIndex int,s,startSize,endSize int) *totalRecord {
 	defer fs.Close()
 	record:=newTotalRecord()
 	reader:=bufio.NewScanner(fs)
-	count:=s * arg.batchSize
+	count:=0
 	for reader.Scan() {
+		row:=reader.Text()
 		if count >=startSize && count < endSize {
-			line:=strings.ReplaceAll(reader.Text(),"\n","")
-			count++
+			line:=strings.ReplaceAll(row,"\n","")
+
+			/*
+			//判断重复数据
+			fsName,ok:=tmp[line]
+            if ok {
+            	log.Info(strconv.Itoa(count)+"-----"+line+"-----"+fsName)
+			} else {
+				tmp[line]=strconv.Itoa(count)+fs.Name()
+			}*/
+
 			preLine:=strings.Split(line," ")
 			tstring:=strings.Split(preLine[0],",")
 			mstring:=strings.Split(preLine[1],",")
+
 			timestamp,_:=strconv.ParseInt(mstring[3],10,64)
 
 			tr,_:=strconv.ParseInt(mstring[0],10,32)
@@ -167,6 +193,7 @@ func readFile(fileIndex int,s,startSize,endSize int) *totalRecord {
 				record.totalCount+=1
 			}
 		}
+		count++
 	}
     return record
 }

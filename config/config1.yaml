@@ -13,7 +13,7 @@ wal:
   listNums: 500
   size: 100
 flush:
-  count: 5000
+  count: 100000
   ttl: 3
 heatbeat:
   timeout: 5
@@ -27,5 +27,5 @@ metastore:
 discovery:
   timeout: 10
 compressed: true
-compressCount: 10000
+compressCount: 100000
 indexed: true

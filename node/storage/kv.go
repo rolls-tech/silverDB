@@ -54,6 +54,8 @@ type compressPoints struct {
 	maxTime int64
 	minTime int64
 	chunk compress.Chunk
+	timeChunk []byte
+	valueChunk []byte
 	fieldKey string
 	count int
 	maxValue []byte
@@ -64,17 +66,42 @@ type compressPoints struct {
 
 
 func (s *kv) writeDataLinked(dn *dataNodeLinked) {
-	go func() {
-		nodeData:=make([]*metricData,0)
+	go func(dn *dataNodeLinked) {
+		// 这里针对每个seriesKey的链表开启了协程进行处理，其实这里应该去把链表中的数据进行一次，合并。
+		// 这里逻辑需要优化
+		// 1、将数据按照metricKey,进行合并
+		// 2、将合并的数据按照设置的数据块的的大小进行分块切割；
+		nodeMetric:=newNodeMetricData()
+		current:= dn.head
+		for current != nil {
+		  if current.fields !=nil {
+		     for key,value:=range current.fields {
+		     	 fieldData,ok:=nodeMetric.metricData[key]
+		     	 if ok {
+					 pointKv := utils.NewSortMap(value.Metric)
+					 sort.Sort(pointKv)
+					 fieldData.points=append(fieldData.points,pointKv...)
+				 } else {
+					 pointKv := utils.NewSortMap(value.Metric)
+					 sort.Sort(pointKv)
+				 	 data:=newMetricData(key,pointKv,value.MetricType,1)
+				     nodeMetric.metricData[key]=data
+				 }
+			 }
+		  }
+		  current=current.next
+		}
+		s.writeKv(dn.dataBase,dn.tableName,dn.tagKv,nodeMetric)
+		/*nodeData:=make([]*metricData,0)
 		current := dn.head
 		for current != nil {
 			if len(current.metrics) > 0 {
 				nodeData=append(nodeData,current.metrics...)
 			}
 			current = current.next
-		}
-		s.writeDataKv(dn.dataBase,dn.tableName,dn.tagKv,nodeData)
-	}()
+		}*/
+		//s.writeDataKv(dn.dataBase,dn.tableName,dn.tagKv,nodeMetric)
+	}(dn)
 }
 
 
@@ -87,6 +114,29 @@ func newNodeMetricData() *nodeMetricData{
 		metricData: make(map[string]*metricData,0),
 	}
 }
+
+
+func (s *kv) writeKv(database,table,tagKv string,nodeMetricData *nodeMetricData) {
+	switch s.isCompressed {
+	case true:
+		fieldKeyDataList:=s.splitData(nodeMetricData)
+		//generateDataFile
+	    s.generateDataFile(database,table,fieldKeyDataList)
+		// setDataFile
+		tableFileDataList:=s.setDataFile(database,table,fieldKeyDataList)
+		// compressData
+		tableFileChunkList:=s.compressTask(tableFileDataList)
+		// writeData
+		s.writeData(tagKv,tableFileChunkList)
+
+
+
+
+	}
+
+}
+
+
 
 
 func (s *kv) writeDataKv(dataBase,table,tagKv string,nodeData []*metricData) {
@@ -125,7 +175,7 @@ func (s *kv) writeDataKv(dataBase,table,tagKv string,nodeData []*metricData) {
             // setDataFile
 			tableFileDataList:=s.setDataFile(dataBase,table,fieldKeyDataList)
 			// compressData
-			tableFileChunkList:=s.compressTask(dataBase,table,tableFileDataList)
+			tableFileChunkList:=s.compressTask(tableFileDataList)
 			// writeData
 			s.writeData(tagKv,tableFileChunkList)
 		}
@@ -135,13 +185,20 @@ func (s *kv) writeDataKv(dataBase,table,tagKv string,nodeData []*metricData) {
 }
 
 func (s *kv) splitData(nodeMetricData *nodeMetricData) map[string][]*metricData {
+	//根据数据压缩块的大小配置，进行数据切片；
 	fieldKeyData:=make(map[string][]*metricData,0)
 	if nodeMetricData.metricData !=nil {
 		for metric,data:=range nodeMetricData.metricData {
-		    m:=data.count / s.compressCount
+			data.count= len(data.points)
+            //按照时间范围做一个归并排序
+            sortPoints:=utils.CombineSort(data.points)
+            data.points=sortPoints
+			m:=data.count / s.compressCount
 		    n:=data.count % s.compressCount
 		    if m == 0 && n > 0 {
 		   	   dataList,ok:=fieldKeyData[metric]
+		   	   data.minTime=data.points[0].T
+		   	   data.maxTime=data.points[data.count-1].T
 		   	   if ok {
 		   	   	  dataList=append(dataList,data)
 			   } else {
@@ -149,6 +206,7 @@ func (s *kv) splitData(nodeMetricData *nodeMetricData) map[string][]*metricData 
 			   	  dataList=append(dataList,data)
 			   	  fieldKeyData[metric]=dataList
 			   }
+
 		    }
 		    if m > 0 {
 		       for k:=0; k < m; k++ {
@@ -159,7 +217,7 @@ func (s *kv) splitData(nodeMetricData *nodeMetricData) map[string][]*metricData 
 					   tmpMetricData.minTime=tmpPoints[0].T
 					   tmpMetricData.maxTime=tmpPoints[len(tmpPoints) -1].T
 					   tmpMetricData.count=len(tmpPoints)
-					   fieldKeyData[metric]=append(fieldKeyData[metric],tmpMetricData)
+					   dataList=append(dataList,tmpMetricData)
 				   } else {
 					   dataList=make([]*metricData,0)
 					   tmpPoints:=data.points[k*s.compressCount:(k+1)*s.compressCount]
@@ -185,6 +243,7 @@ func (s *kv) splitData(nodeMetricData *nodeMetricData) map[string][]*metricData 
 	return fieldKeyData
 }
 
+
 func (s *kv) generateDataFile(dataBase,tableName string,fieldKeyDataList map[string][]*metricData) {
 	if fieldKeyDataList != nil {
 		for _,dataList:=range fieldKeyDataList {
@@ -207,7 +266,6 @@ func (s *kv) generateDataFile(dataBase,tableName string,fieldKeyDataList map[str
 		}
 	}
 }
-
 
 
 func (s *kv) setDataFile(dataBase,tableName string,fieldKeyDataList map[string][]*metricData) map[string][]*metricData {
@@ -260,11 +318,14 @@ func (s *kv) setDataFile(dataBase,tableName string,fieldKeyDataList map[string][
 	return tableFileDataList
 }
 
-
+var count int
 
 func (s *kv) writeData (tagKv string,tableFileChunkList map[string][]*compressPoints) {
 	if tableFileChunkList != nil {
 		for tableFile,chunkList:=range tableFileChunkList {
+		   s.mutex.Lock()
+		   count+=len(chunkList)
+		   s.mutex.Unlock()
 		   if len(chunkList) > 0 {
 		   	  go func(tableFile string ,chunkList []*compressPoints ) {
 				  e:=writeKv(tableFile,tagKv,chunkList)
@@ -275,6 +336,7 @@ func (s *kv) writeData (tagKv string,tableFileChunkList map[string][]*compressPo
 		   }
 		}
 	}
+	log.Println("chunk count: ",count)
 }
 
 
@@ -434,7 +496,7 @@ func (s *kv) readData(dataBase,tableName,tagKv,fieldKey string,startTime,endTime
 }
 
 
-func (s *kv) compressTask(dataBase,table string,tableFileDataList map[string][]*metricData) map[string][]*compressPoints {
+func (s *kv) compressTask(tableFileDataList map[string][]*metricData) map[string][]*compressPoints {
 	tableFileChunkList:=make(map[string][]*compressPoints)
 	if tableFileDataList != nil {
 		for tableFile,dataList:=range tableFileDataList {
@@ -465,32 +527,128 @@ func (s *kv) compressTask(dataBase,table string,tableFileDataList map[string][]*
 }
 
 
-func (s *kv) compressData(metricData *metricData) *compressPoints{
-	chunk := compress.NewXORChunk()
-	app, err := chunk.Appender()
-	if err != nil {
-		log.Println(err)
-	}
+func (s *kv) compressData(metricData *metricData) *compressPoints {
+
+	var timeChunk []byte
+	var valueChunk []byte
 	var minValue []byte
 	var maxValue []byte
-	if len(metricData.points) > 0 {
-		minValue=metricData.points[0].V
-		maxValue=metricData.points[0].V
-		dataType:=metricData.metricType
-		for _,p:=range metricData.points {
-            if bytes.Compare(p.V,minValue) < 0 {
-            	minValue=p.V
+	/*
+	to do code improve
+	*/
+	switch metricData.metricType {
+	case utils.Bool:
+		enc1:=compress.NewBooleanEncoder(metricData.count)
+		enc2:=compress.NewTimeEncoder(metricData.count)
+		if len(metricData.points) > 0 {
+			minValue=metricData.points[0].V
+			maxValue=metricData.points[0].V
+			for _,p:=range metricData.points {
+				if bytes.Compare(p.V,[]byte{0}) == 0 {
+					enc1.Write(false)
+				}else {
+					enc1.Write(true)
+				}
+				enc2.Write(p.T)
+				if bytes.Compare(p.V,minValue) < 0 {
+					   minValue=p.V
+				}
+				if bytes.Compare(p.V,maxValue) >= 0 {
+					   maxValue=p.V
+				}
 			}
-			if bytes.Compare(p.V,maxValue) >= 0 {
-				maxValue=p.V
-			}
-            app.Append(p.T, utils.TransByteToFloat64(dataType,p.V))
 		}
+		timeChunk,_= enc2.Bytes()
+		valueChunk,_= enc1.Bytes()
+		break
+	case utils.Long:
+		enc1:=compress.NewIntegerEncoder(metricData.count)
+		enc2:=compress.NewTimeEncoder(metricData.count)
+		if len(metricData.points) > 0 {
+			minValue=metricData.points[0].V
+			maxValue=metricData.points[0].V
+			for _,p:=range metricData.points {
+				enc1.Write(utils.TransByteToData(utils.Long,p.V).(int64))
+				enc2.Write(p.T)
+				if bytes.Compare(p.V,minValue) < 0 {
+					minValue=p.V
+				}
+				if bytes.Compare(p.V,maxValue) >= 0 {
+					maxValue=p.V
+				}
+			}
+		}
+		timeChunk,_= enc2.Bytes()
+		valueChunk,_= enc1.Bytes()
+		break
+	case utils.Double:
+		enc1:=compress.NewFloatEncoder()
+		enc2:=compress.NewTimeEncoder(metricData.count)
+		if len(metricData.points) > 0 {
+			minValue=metricData.points[0].V
+			maxValue=metricData.points[0].V
+			for _,p:=range metricData.points {
+				enc1.Write(utils.TransByteToData(utils.Double,p.V).(float64))
+				enc2.Write(p.T)
+				if bytes.Compare(p.V,minValue) < 0 {
+					minValue=p.V
+				}
+				if bytes.Compare(p.V,maxValue) >= 0 {
+					maxValue=p.V
+				}
+			}
+		}
+		timeChunk,_= enc2.Bytes()
+		valueChunk,_= enc1.Bytes()
+		break
+	case utils.Int:
+		enc1:=compress.NewIntegerEncoder(metricData.count)
+		enc2:=compress.NewTimeEncoder(metricData.count)
+		if len(metricData.points) > 0 {
+			minValue=metricData.points[0].V
+			maxValue=metricData.points[0].V
+			for _,p:=range metricData.points {
+				b:=make([]byte,4)
+				b=append(b,p.V...)
+				enc1.Write(utils.TransByteToData(utils.Long,b).(int64))
+				enc2.Write(p.T)
+				if bytes.Compare(p.V,minValue) < 0 {
+					minValue=p.V
+				}
+				if bytes.Compare(p.V,maxValue) >= 0 {
+					maxValue=p.V
+				}
+			}
+		}
+		timeChunk,_= enc2.Bytes()
+		valueChunk,_= enc1.Bytes()
+		break
+	case utils.Float:
+		enc1:=compress.NewFloatEncoder()
+		enc2:=compress.NewTimeEncoder(metricData.count)
+		if len(metricData.points) > 0 {
+			minValue=metricData.points[0].V
+			maxValue=metricData.points[0].V
+			for _,p:=range metricData.points {
+				enc1.Write(utils.TransByteToData(utils.Double,p.V).(float64))
+				enc2.Write(p.T)
+				if bytes.Compare(p.V,minValue) < 0 {
+					minValue=p.V
+				}
+				if bytes.Compare(p.V,maxValue) >= 0 {
+					maxValue=p.V
+				}
+			}
+		}
+		timeChunk,_= enc2.Bytes()
+		valueChunk,_= enc1.Bytes()
+		break
 	}
 	return &compressPoints {
 		maxTime:  metricData.maxTime,
 		minTime:  metricData.minTime,
-		chunk:    chunk,
+		timeChunk: timeChunk,
+		valueChunk: valueChunk,
 		fieldKey: metricData.metric,
 		count: metricData.count,
 		metricType: metricData.metricType,

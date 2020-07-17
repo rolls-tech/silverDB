@@ -37,7 +37,6 @@ func main() {
 		metricType1=dataType
 	}
 
-
 	for n:=0; n < 10000 ; n++ {
 		tt:=time.Now().UnixNano()+int64(n)
 		data,dataType:=utils.TransDataType(12323.21212121)

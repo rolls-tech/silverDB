@@ -13,7 +13,7 @@ import (
 
 type Storage interface {
 	ReadTsData(*point.ReadPoint,string,chan *point.ReadPoint)
-	WriteTsData(*point.WritePoint,string,[]byte,int,int64,int64) error
+	WriteTsData(*point.WritePoint,string,[]byte) error
 
 }
 
@@ -74,8 +74,8 @@ func (e *engine) ReadTsData(readPoint *point.ReadPoint,tagKv string,c chan *poin
 }
 
 
-func (e *engine) WriteTsData(wp *point.WritePoint,tagKv string,data []byte,dataLen int ,timestamp,id int64) error {
-    e.wal.WriteData(wp,tagKv,data,dataLen,timestamp,id)
+func (e *engine) WriteTsData(wp *point.WritePoint,tagKv string,data []byte) error {
+    e.wal.WriteData(wp,tagKv,data)
     er:=e.buffer.WriteData(wp,tagKv)
     er=e.index.WriteData(wp,tagKv)
 	return er

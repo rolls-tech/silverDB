@@ -9,7 +9,6 @@ import (
 	"silver/node/client"
 	"silver/node/point"
 	"strings"
-	"time"
 )
 
 type Server struct {
@@ -57,7 +56,7 @@ func (s *Server) process(conn net.Conn) {
 				return
 			}
 			if op == 'S' {
-				s.writeRequest(writeResultCh,conn,request)
+				s.writeRequest(writeResultCh,request)
 			}else if op == 'D' {
 				log.Println("D")
 			}else if op == 'G' {
@@ -71,17 +70,17 @@ func (s *Server) process(conn net.Conn) {
 		}
 }
 
-func (s *Server) writeRequest(ch chan chan bool,conn net.Conn, request *bufio.Reader) {
+func (s *Server) writeRequest(ch chan chan bool,request *bufio.Reader) {
 	    c:=make(chan bool,0)
 	    ch <- c
-	    wp,tagKv,buf,e:=s.resolveWriteRequest(conn,request,c)
+	    wp,tagKv,buf,e:=s.resolveWriteRequest(request,c)
 	    if e != nil {
 	    	log.Println(e)
 			return
 		}
 	    if wp != nil  {
 	    	    go func() {
-					e=s.WriteTsData(wp,tagKv,buf,len(buf),time.Now().UnixNano(),0)
+					e=s.WriteTsData(wp,tagKv,buf)
 					if e != nil {
 						log.Println(s.Addr()+ " write data failed !" ,e)
 						c <- false

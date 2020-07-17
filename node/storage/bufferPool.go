@@ -8,7 +8,6 @@ import (
 	"silver/metastore"
 	"silver/node/point"
 	"silver/utils"
-	"sort"
 	"sync"
 	"time"
 )
@@ -16,6 +15,7 @@ import (
 type dataNode struct {
 	mutex   sync.RWMutex
 	metrics []*metricData
+	fields  map[string]*point.Metric
 	currentListNums int
 	created time.Time
 	count   int
@@ -48,6 +48,7 @@ type dataNodeLinked struct {
 	count     int
 	size      int
 	currentNodeNums int
+	created time.Time
 }
 
 type DataBuffer struct {
@@ -101,6 +102,7 @@ func initDataNodeLinked(dataBase, tableName, tagKv string, tags map[string]strin
 		tags:      tags,
 		tagKv:     tagKv,
 		count:     0,
+		created: time.Now(),
 	}
 }
 
@@ -109,7 +111,11 @@ func (b *DataBuffer) sequenceTraversal(dn *dataNodeLinked) *dataNode {
 	for current.next != nil {
 		current = current.next
 	}
-	return current
+	node:= newDataNode()
+	current.next=node
+	node.next=nil
+	dn.currentNodeNums=dn.currentNodeNums+1
+	return node
 }
 
 func (b *DataBuffer) WriteData(wp *point.WritePoint, tagKv string) error {
@@ -150,7 +156,7 @@ func (b *DataBuffer) readBuffer() map[int64]float64 {
 	return kv
 }
 
-//To-do encoded SeriesKey
+// To-do encoded SeriesKey
 func (b *DataBuffer) encodedSeriesKey(seriesKey string) string {
 	if len(seriesKey) > 0 {
 		md:=md5.New()
@@ -168,28 +174,31 @@ func (b *DataBuffer) writeBuffer(wp *point.WritePoint, tagKv string) error {
 	var e error
 	if wp != nil {
 		seriesKey := wp.DataBase + wp.TableName + tagKv
+		//这里计算seriesKey的md5值
 		mdSeriesKey:=b.encodedSeriesKey(seriesKey)
 		if len(mdSeriesKey) <= 0 {
 			return e
 		}
+		//在buffer中的数据结构基本和wal中的类似
 		dn, ok := b.buffer[mdSeriesKey]
 		var currentNode *dataNode
 		if ok {
+			//这里只需要找一个空的节点就可以
 			node := b.sequenceTraversal(dn)
-			if node.currentListNums >= b.listNums {
-				node.next = newDataNode()
-				currentNode=node.next
-			} else {
-				currentNode=node
-			}
+			currentNode=node
 		} else {
 			dn = initDataNodeLinked(wp.DataBase, wp.TableName, tagKv, wp.Tags)
 			b.buffer[mdSeriesKey] = dn
-			currentNode=dn.head
+			currentNode=newDataNode()
+			dn.head.next=currentNode
+			dn.currentNodeNums +=1
 		}
 		if wp.Metric != nil {
-			for key, value := range wp.Metric {
+			for _, value := range wp.Metric {
 				if value.Metric != nil {
+					currentNode.count += len(value.Metric)
+					//其实在这里做排序这样的操作，似乎是没有任何意义的
+					/*
 					pointKv := utils.NewSortMap(value.Metric)
 					sort.Sort(pointKv)
 					metric := newMetricData(key,pointKv,value.MetricType,wp.TimePrecision)
@@ -209,16 +218,20 @@ func (b *DataBuffer) writeBuffer(wp *point.WritePoint, tagKv string) error {
 					}
 					currentNode.metrics = append(currentNode.metrics, metric)
 					currentNode.currentListNums += 1
+					*/
 				}
 			}
-			if dn.maxTime < currentNode.maxTime {
+			/*if dn.maxTime < currentNode.maxTime {
 				dn.maxTime = currentNode.maxTime
 			}
 			if dn.minTime > currentNode.minTime {
 				dn.minTime = currentNode.minTime
-			}
-			dn.currentNodeNums += 1
-			dn.count += currentNode.count
+			}*/
+			currentNode.fields=wp.Metric
+
+
+			//这里主要是为了说明，数据条数的增加
+			dn.count += currentNode.count / len(currentNode.fields)
 		}
 	}
 	return e
@@ -246,25 +259,27 @@ func NewDataBuffer(config config.NodeConfig, listener1 *metastore.Listener, regi
 	return buffer
 }
 
+
+
 func (b *DataBuffer) flush(flushCount int) {
 	for {
 		time.Sleep(b.ttl)
 		if len(b.buffer) != 0 && b.buffer != nil {
 			for seriesKey, dn := range b.buffer {
+				//如果对于某个sk，缓存的数据已经大于涮写的数据大小.
+				b.mutex.Lock()
 				if dn.count >= flushCount {
-					b.mutex.Lock()
-					//current := dn.head
 					b.kv.writeDataLinked(dn)
-
-					/*for current != nil {
-						if len(current.metrics) > 0 {
-							b.kv.writeData(dn.dataBase, dn.tableName, dn.tagKv, dn.tags,current.metrics)
-						}
-						current = current.next
-					}*/
 					delete(b.buffer,seriesKey)
-					b.mutex.Unlock()
 				}
+				dnn,ok:=b.buffer[seriesKey]
+				if ok {
+					if dnn !=nil && dnn.created.Add(b.ttl).Before(time.Now()) {
+						b.kv.writeDataLinked(dn)
+						delete(b.buffer,seriesKey)
+					}
+				}
+				b.mutex.Unlock()
 			}
 		}
 	}

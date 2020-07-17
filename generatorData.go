@@ -47,7 +47,7 @@ func generatorStatus() bool {
 }
 
 func NewDeviceData(id int) *deviceData {
-	return &deviceData{
+	return &deviceData {
 		deviceId: strconv.Itoa(id),
 		deviceGroup: fmt.Sprintf("%s%d",groupPrefix,id),
 		deviceName: fmt.Sprintf("%s%d",namePrefix,id),

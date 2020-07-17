@@ -16,8 +16,9 @@ import (
 )
 
 
-func (s *Server) resolveWriteRequest(conn net.Conn, request *bufio.Reader,c chan bool) (*point.WritePoint,string,[]byte,error){
-    wp,buf,e:=s.writePoint(request)
+func (s *Server) resolveWriteRequest(request *bufio.Reader,c chan bool) (*point.WritePoint,string,[]byte,error){
+    // 解析客户端写请求
+	wp,buf,e:=s.writePoint(request)
 	if e != nil {
 		return wp,"",buf,e
 	}
@@ -120,7 +121,6 @@ func (s *Server) readPoint(request *bufio.Reader) (*point.ReadPoint,[]byte,error
 
 }
 
-
 func (s *Server) writePoint(request *bufio.Reader) (*point.WritePoint,[]byte,error){
 	l1,e:= readLen(request)
 	if e !=nil {
@@ -149,14 +149,12 @@ func (s *Server) metaDataService() {
 	}
 }
 
-
 func (s *Server) nodeDataService() {
 	e:=s.NodeDataService()
 	if e !=nil {
 		log.Println(e)
 	}
 }
-
 
 func readLen(r *bufio.Reader) (string, error) {
 	tmp, e := r.ReadString(',')

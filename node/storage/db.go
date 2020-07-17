@@ -127,8 +127,8 @@ func generateChunkData(chunk *compressPoints) ([]byte,[]byte) {
 	precision:=utils.Int32ToByte(chunk.precision)
 	metricType:=utils.Int32ToByte(chunk.metricType)
 	bucketKey:=[]byte(fmt.Sprintf("%s%s%s%s,%s,%s,%s,%s",minTime,maxTime,timestamp,metricType,precision,chunk.minValue,chunk.maxValue,count))
-	chunkValue:=[]byte(fmt.Sprintf("%d,%s",
-		len(chunk.chunk.Bytes()),chunk.chunk.Bytes()))
+	chunkValue:=[]byte(fmt.Sprintf("%s,%s",
+		chunk.timeChunk,chunk.valueChunk))
 	return bucketKey,chunkValue
 }
 
@@ -196,6 +196,7 @@ func resolverChunkData(keyByte,chunkByte []byte) *chunkData {
 		}
 		return chunkData
 	}
+
 
 func writeKv(tableFile,tagKv string,chunkList []*compressPoints) error {
 		db:=openDB(tableFile)

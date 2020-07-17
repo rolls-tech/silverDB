@@ -72,10 +72,6 @@ func ByteToInt64(data []byte) int64 {
 	return int64(binary.BigEndian.Uint64(data))
 }
 
-func ByteToInt(data []byte) int {
-	return int(binary.BigEndian.Uint32(data))
-}
-
 func ByteToInt32(data []byte) int32 {
 	return int32(binary.BigEndian.Uint32(data))
 }
