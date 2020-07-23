@@ -19,6 +19,7 @@ func init() {
 
 func main() {
 
+
 	//元数据服务
 	listener1,e:= metastore.NewListener(c1.MetaStore.MetaAddr,c1.MetaStore.Timeout,c1.MetaStore.MetaPrefix,c1.MetaStore.NodePrefix)
 	if e != nil {

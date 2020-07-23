@@ -232,6 +232,7 @@ func (b *DataBuffer) writeBuffer(wp *point.WritePoint, tagKv string) error {
 
 			//这里主要是为了说明，数据条数的增加
 			dn.count += currentNode.count / len(currentNode.fields)
+			b.count+=dn.count
 		}
 	}
 	return e
@@ -265,21 +266,26 @@ func (b *DataBuffer) flush(flushCount int) {
 	for {
 		time.Sleep(b.ttl)
 		if len(b.buffer) != 0 && b.buffer != nil {
-			for seriesKey, dn := range b.buffer {
-				//如果对于某个sk，缓存的数据已经大于涮写的数据大小.
-				b.mutex.Lock()
-				if dn.count >= flushCount {
-					b.kv.writeDataLinked(dn)
-					delete(b.buffer,seriesKey)
-				}
-				dnn,ok:=b.buffer[seriesKey]
-				if ok {
-					if dnn !=nil && dnn.created.Add(b.ttl).Before(time.Now()) {
+			if b.count >= flushCount {
+				for seriesKey, dn := range b.buffer {
+					//如果对于某个sk，缓存的数据已经大于涮写的数据大小.
+					b.mutex.Lock()
+					/*if dn.count >= flushCount {
 						b.kv.writeDataLinked(dn)
 						delete(b.buffer,seriesKey)
+						b.count-=dn.count
+					} else */
+					if dn.created.Add(b.ttl).Before(time.Now()) {
+						b.kv.writeDataLinked(dn)
+						delete(b.buffer, seriesKey)
+						b.count -= dn.count
+						//}
+
 					}
+					b.mutex.Unlock()
+
 				}
-				b.mutex.Unlock()
+
 			}
 		}
 	}

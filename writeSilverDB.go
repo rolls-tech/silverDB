@@ -72,8 +72,6 @@ func newTotalRecord() *totalRecord {
 }
 
 
-
-
 func writePoint(fileIndex int) []*point.WritePoint {
 	wpList:=make([]*point.WritePoint,0)
 	wpSize:= arg.rows / arg.batchSize
@@ -208,13 +206,13 @@ func writeData(wg *sync.WaitGroup,i,ftNums int) {
             wpList:=writePoint(fileIndex)
             wpTotal=append(wpTotal,wpList...)
 	 	    n++
-	    }
-	   tc:=client.NewClient(arg.host)
-	   requestNums:= len(wpTotal) / arg.pipeline
-	   for i:=0;i<requestNums;i++ {
+		}
+	    tc:=client.NewClient(arg.host)
+	    requestNums:= len(wpTotal) / arg.pipeline
+	    for i:=0; i< requestNums;i++ {
 		   tc.ExecuteWrite(wpTotal[i*arg.pipeline:(i+1)*arg.pipeline])
-	   }
-	   wg.Done()
+	    }
+	    wg.Done()
 }
 
 

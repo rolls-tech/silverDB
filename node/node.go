@@ -96,14 +96,14 @@ func NewNode(addr string,cluster string,storageAddr string) (Node,error) {
 	       time.Sleep(time.Second)
 			m:=l.Members()
 			for _,node:=range m {
-				p:=&pingNode {
+				/*p:=&pingNode {
 					proto: "udp",
 					ip:    node.Name,
-				}
-				_,e:=l.Ping(node.Name,p)
-				if e == nil {
+				}*/
+				//_,e:=l.Ping(node.Name,p)
+				//if e == nil {
 					circle.Add(node.Name)
-				}
+				//}
 			}
 		}
 	}()

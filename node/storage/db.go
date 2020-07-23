@@ -8,6 +8,7 @@ import (
 	"github.com/boltdb/bolt"
 	"io"
 	"log"
+	"os"
 	"silver/node/point"
 	"silver/utils"
 	"strconv"
@@ -16,7 +17,7 @@ import (
 )
 
 func openDB(dataFile string) *bolt.DB {
-	db, err := bolt.Open (dataFile,0600,nil)
+	db, err := bolt.Open (dataFile,os.ModePerm,nil)
 	if err != nil {
 		log.Println(err.Error())
 	}
@@ -132,6 +133,26 @@ func generateChunkData(chunk *compressPoints) ([]byte,[]byte) {
 	return bucketKey,chunkValue
 }
 
+func generateTimeChunkData(chunk *compressPoints) []byte {
+	minTime:=utils.Int64ToByte(chunk.minTime)
+	maxTime:=utils.Int64ToByte(chunk.maxTime)
+	timestamp:=utils.Int64ToByte(time.Now().UnixNano())
+	count:=utils.IntToByte(chunk.count)
+	precision:=utils.Int32ToByte(chunk.precision)
+	bucketKey:=[]byte(fmt.Sprintf("%s%s%s,%s,%s,%s",minTime,maxTime,timestamp,chunk.timeChunk,precision,count))
+	//log.Println(len(bucketKey) / 1024, " kB" )
+	return bucketKey
+}
+
+func generateValueChunkData(chunk *compressPoints) []byte {
+	metricType:=utils.Int32ToByte(chunk.metricType)
+	valueKey:=[]byte(fmt.Sprintf("%s%s,%s,%s",metricType,chunk.minValue,chunk.maxValue,chunk.valueChunk))
+	//log.Println(len(valueKey) / 1024, " kB" )
+	return valueKey
+}
+
+
+
 type chunkData struct {
 	minTime []byte
     maxTime []byte
@@ -202,23 +223,34 @@ func writeKv(tableFile,tagKv string,chunkList []*compressPoints) error {
 		db:=openDB(tableFile)
 		defer db.Close()
 		if len(chunkList) > 0 {
-		for _,chunk:=range chunkList {
+		//for _,chunk:=range chunkList {
 			if err := db.Batch(func(tx *bolt.Tx) error {
-			table, err := tx.CreateBucketIfNotExists([]byte(tagKv+chunk.fieldKey))
+			// 优化数据存储
+			tagTable, err := tx.CreateBucketIfNotExists([]byte(tagKv))
 			if err != nil {
 				return err
 			}
+			timeData:=generateTimeChunkData(chunkList[0])
+			bucket,err:=tagTable.CreateBucketIfNotExists(timeData)
+			for i:=0; i < len(chunkList); i++ {
+				valueData:=generateValueChunkData(chunkList[i])
+				err=bucket.Put([]byte(chunkList[i].fieldKey),valueData)
+				if err != nil {
+					return err
+				}
+			}
+			/*table, err := tx.CreateBucketIfNotExists([]byte(tagKv+chunk.fieldKey))
 			key,value:=generateChunkData(chunk)
 			err = table.Put(key,value)
 			if err != nil {
-				return err
-				}
+			   return err
+			}*/
 			return nil
 			}); err != nil {
 				log.Println(err)
 				return err
-				}
 			}
+			//}
 		}
 	return nil
 }

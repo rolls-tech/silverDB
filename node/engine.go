@@ -7,6 +7,7 @@ import (
 	"silver/node/point"
 	"silver/node/storage"
 	"strings"
+	"sync"
 )
 
 
@@ -22,6 +23,7 @@ type engine struct {
 	wal *storage.WalBuffer
 	index *storage.Index
 	buffer *storage.DataBuffer
+	mu sync.RWMutex
 }
 
 func (e *engine) ReadTsData(readPoint *point.ReadPoint,tagKv string,c chan *point.ReadPoint) {
@@ -73,8 +75,13 @@ func (e *engine) ReadTsData(readPoint *point.ReadPoint,tagKv string,c chan *poin
     }
 }
 
+var requestCount int
 
 func (e *engine) WriteTsData(wp *point.WritePoint,tagKv string,data []byte) error {
+	/*e.mu.Lock()
+	requestCount+=1
+	log.Println("total request count: ",requestCount)
+	e.mu.Unlock()*/
     e.wal.WriteData(wp,tagKv,data)
     er:=e.buffer.WriteData(wp,tagKv)
     er=e.index.WriteData(wp,tagKv)

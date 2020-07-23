@@ -70,7 +70,7 @@ func init() {
 	flag.StringVar(&dataDir, "dir", "/Volumes/info/data/", "device data dir")
 	flag.IntVar(&fileNums, "fn", 10, "number of data file")
 	flag.IntVar(&deviceNums, "dn", 1000, "number of device")
-	flag.IntVar(&deviceRecords, "dr", 10000, "rows of every device")
+	flag.IntVar(&deviceRecords, "dr", 50000, "rows of every device")
 	flag.Parse()
 	fmt.Println("device data dir", dataDir)
 	fmt.Println("number of data file", fileNums)

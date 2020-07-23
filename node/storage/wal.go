@@ -86,8 +86,8 @@ func (w *Wal) writeWalFile(walFile string,getWp []byte) error {
 	defer f.Close()
 	writer:=bufio.NewWriterSize(f,16 * 1024)
 	w.mutex.Lock()
-	n,e:=writer.Write(getWp)
-	log.Println("write wal data size: ", n / 1024,"kb")
+	_,e=writer.Write(getWp)
+	//log.Println("write wal data size: ", n / 1024,"kb")
 	if e !=nil {
 		log.Println("write wal file: "+walFile+" failed",e)
 		return e

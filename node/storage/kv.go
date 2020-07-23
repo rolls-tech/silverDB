@@ -2,6 +2,7 @@ package storage
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"io/ioutil"
 	"log"
@@ -64,15 +65,17 @@ type compressPoints struct {
 	precision int32
 }
 
+var dnCount int
 
 func (s *kv) writeDataLinked(dn *dataNodeLinked) {
+
 	go func(dn *dataNodeLinked) {
 		// 这里针对每个seriesKey的链表开启了协程进行处理，其实这里应该去把链表中的数据进行一次，合并。
 		// 这里逻辑需要优化
 		// 1、将数据按照metricKey,进行合并
 		// 2、将合并的数据按照设置的数据块的的大小进行分块切割；
 		nodeMetric:=newNodeMetricData()
-		current:= dn.head
+		current:= dn.head.next
 		for current != nil {
 		  if current.fields !=nil {
 		     for key,value:=range current.fields {
@@ -89,7 +92,11 @@ func (s *kv) writeDataLinked(dn *dataNodeLinked) {
 				 }
 			 }
 		  }
-		  current=current.next
+		    current=current.next
+		/*	s.mutex.Lock()
+			dnCount+=1
+			log.Println("buffer dn data count: ",dnCount)
+			s.mutex.Unlock()*/
 		}
 		s.writeKv(dn.dataBase,dn.tableName,dn.tagKv,nodeMetric)
 		/*nodeData:=make([]*metricData,0)
@@ -115,23 +122,30 @@ func newNodeMetricData() *nodeMetricData{
 	}
 }
 
+var writeCount,writetotal int
 
 func (s *kv) writeKv(database,table,tagKv string,nodeMetricData *nodeMetricData) {
 	switch s.isCompressed {
 	case true:
+
+	/*	s.mutex.Lock()
+		writeCount+=1
+		writetotal+= len(nodeMetricData.metricData["status"].points)
+		fmt.Printf("receive request count: %d and write total %d \n",writeCount,writetotal)
+		fmt.Println("=================================")
+		s.mutex.Unlock()*/
+
 		fieldKeyDataList:=s.splitData(nodeMetricData)
+		//以下代码需要优化，重复扫描了两遍目录
 		//generateDataFile
-	    s.generateDataFile(database,table,fieldKeyDataList)
+		tableFileDataList:=s.generateDataFile(database,table,fieldKeyDataList)
 		// setDataFile
-		tableFileDataList:=s.setDataFile(database,table,fieldKeyDataList)
+		//tableFileDataList:=s.setDataFile(database,table,fieldKeyDataList)
 		// compressData
-		tableFileChunkList:=s.compressTask(tableFileDataList)
+		//tableFileChunkList:=s.compressTask(tagKv,tableFileDataList)
+		s.compressTask(tagKv,tableFileDataList)
 		// writeData
-		s.writeData(tagKv,tableFileChunkList)
-
-
-
-
+		//s.writeData(tagKv,tableFileChunkList)
 	}
 
 }
@@ -139,7 +153,7 @@ func (s *kv) writeKv(database,table,tagKv string,nodeMetricData *nodeMetricData)
 
 
 
-func (s *kv) writeDataKv(dataBase,table,tagKv string,nodeData []*metricData) {
+/*func (s *kv) writeDataKv(dataBase,table,tagKv string,nodeData []*metricData) {
 	nodeMetricData:=newNodeMetricData()
 	switch s.isCompressed {
 	case true:
@@ -182,7 +196,7 @@ func (s *kv) writeDataKv(dataBase,table,tagKv string,nodeData []*metricData) {
 	case false:
 
 	}
-}
+}*/
 
 func (s *kv) splitData(nodeMetricData *nodeMetricData) map[string][]*metricData {
 	//根据数据压缩块的大小配置，进行数据切片；
@@ -243,28 +257,76 @@ func (s *kv) splitData(nodeMetricData *nodeMetricData) map[string][]*metricData 
 	return fieldKeyData
 }
 
+var splitDataCount int
 
-func (s *kv) generateDataFile(dataBase,tableName string,fieldKeyDataList map[string][]*metricData) {
+func (s *kv) generateDataFile(dataBase,tableName string,fieldKeyDataList map[string][]*metricData) map[string][]*metricData {
+	tableFileDataList:=make(map[string][]*metricData)
+
+	/*s.mutex.Lock()
+	for _,data:=range fieldKeyDataList["status"] {
+		splitDataCount+=len(data.points)
+        fmt.Printf("split data count : %d\n",splitDataCount)
+	}
+	s.mutex.Unlock()*/
+
+	// to-do
+	//这里重复扫描数据目录，同时还丢了数据
 	if fieldKeyDataList != nil {
-		for _,dataList:=range fieldKeyDataList {
+		log.Println(len(fieldKeyDataList))
+		for fieldKey,dataList:=range fieldKeyDataList {
 			if len(dataList) > 0 {
 				for _,data:=range dataList {
 						maxTime:=data.maxTime
 						minTime:=data.minTime
 						tableFileTimeRange:=s.scanDataDir(dataBase,tableName,minTime,maxTime)
 						if tableFileTimeRange != nil {
-							for tableFile,_:=range tableFileTimeRange {
-								ok:=utils.CheckFileIsExist(tableFile)
-								if !ok {
-									db:=openDB(tableFile)
-									db.Close()
+							for tableFile,timeRange:=range tableFileTimeRange {
+								s.mutex.Lock()
+								if tableFile !="" {
+									ok:=utils.CheckFileIsExist(tableFile)
+									if !ok {
+										db:=openDB(tableFile)
+										db.Close()
+									}
 								}
+								startTime:=timeRange.startTime
+								endTime:=timeRange.endTime
+								index1:=search(data.points,startTime)
+								index2:=search(data.points,endTime)
+								//fmt.Printf("data endtime: %d and time range endtime: %d\n",data.points[index2].T,endTime)
+								var tmpPoints []utils.Point
+								if endTime - startTime < s.duration.Nanoseconds() && endTime -startTime != 0 {
+									tmpPoints=data.points[index1:index2+1]
+								}
+								if endTime - startTime == 0 {
+									tmpPoints=data.points[index1:index2]
+								}
+								splitDataCount+=len(tmpPoints)
+								fmt.Printf("data is split by time: %d,%d,%d and tmp count %d\n", len(tmpPoints),index1,index2,splitDataCount)
+								_,ok:=tableFileDataList[tableFile]
+								if ok {
+									tmpMetricData:=newMetricData(fieldKey,tmpPoints,data.metricType,data.precision)
+									tmpMetricData.count=len(tmpPoints)
+									tmpMetricData.minTime=startTime
+									tmpMetricData.maxTime=endTime
+									tableFileDataList[tableFile]=append(tableFileDataList[tableFile],tmpMetricData)
+								} else {
+									metricDataList:=make([]*metricData,0)
+									tmpMetricData:=newMetricData(fieldKey,tmpPoints,data.metricType,data.precision)
+									tmpMetricData.count=len(tmpPoints)
+									tmpMetricData.minTime=startTime
+									tmpMetricData.maxTime=endTime
+									metricDataList=append(metricDataList,tmpMetricData)
+									tableFileDataList[tableFile]=metricDataList
+								}
+								s.mutex.Unlock()
 							}
 						}
 				}
 			}
 		}
 	}
+	return tableFileDataList
 }
 
 
@@ -318,25 +380,30 @@ func (s *kv) setDataFile(dataBase,tableName string,fieldKeyDataList map[string][
 	return tableFileDataList
 }
 
+
+var total int
 var count int
 
-func (s *kv) writeData (tagKv string,tableFileChunkList map[string][]*compressPoints) {
+func (s *kv) writeData(tagKv string, tableFileChunkList map[string][]*compressPoints) {
 	if tableFileChunkList != nil {
-		for tableFile,chunkList:=range tableFileChunkList {
-		   s.mutex.Lock()
-		   count+=len(chunkList)
-		   s.mutex.Unlock()
-		   if len(chunkList) > 0 {
-		   	  go func(tableFile string ,chunkList []*compressPoints ) {
-				  e:=writeKv(tableFile,tagKv,chunkList)
-				  if e !=nil {
-					  log.Println("write kv storage failed !",e)
-				  }
-			  }(tableFile,chunkList)
-		   }
+		for tableFile, chunkList := range tableFileChunkList {
+			s.mutex.Lock()
+			count += 1
+			total += chunkList[0].count
+			fmt.Printf("request count: %d and chunk count: %d and total count: %d \n", count, chunkList[0].count,total)
+			s.mutex.Unlock()
+			if len(chunkList) > 0 {
+				go func(tableFile string, chunkList []*compressPoints) {
+					e := writeKv(tableFile, tagKv, chunkList)
+					if e != nil {
+						log.Println("write kv storage failed !", e)
+					}
+
+				}(tableFile, chunkList)
+			}
 		}
 	}
-	log.Println("chunk count: ",count)
+
 }
 
 
@@ -496,30 +563,47 @@ func (s *kv) readData(dataBase,tableName,tagKv,fieldKey string,startTime,endTime
 }
 
 
-func (s *kv) compressTask(tableFileDataList map[string][]*metricData) map[string][]*compressPoints {
+var uncompressTotal int
+
+func (s *kv) compressTask(tagKv string,tableFileDataList map[string][]*metricData) map[string][]*compressPoints {
 	tableFileChunkList:=make(map[string][]*compressPoints)
 	if tableFileDataList != nil {
 		for tableFile,dataList:=range tableFileDataList {
+		/*	s.mutex.Lock()
+			uncompressTotal+= dataList[0].count
+			fmt.Printf("uncompress data count: %d\n",uncompressTotal)
+			s.mutex.Unlock()*/
+			chunkList:=make([]*compressPoints,0)
 			if len(dataList) > 0 {
 				var wg sync.WaitGroup
 				for _,data:=range dataList {
 					wg.Add(1)
 					go func(data *metricData,wg *sync.WaitGroup) {
-						chunk:=s.compressData(data)
 						s.mutex.Lock()
-						_,ok:=tableFileChunkList[tableFile]
+						chunk:=s.compressData(data)
+						chunkList=append(chunkList,chunk)
+						/*_,ok:=tableFileChunkList[tableFile]
 						if ok {
 							tableFileChunkList[tableFile]=append(tableFileChunkList[tableFile],chunk)
 						} else {
 							chunkList:=make([]*compressPoints,0)
 							chunkList=append(chunkList,chunk)
 							tableFileChunkList[tableFile]=chunkList
-						}
+						}*/
 						s.mutex.Unlock()
 						wg.Done()
 					}(data,&wg)
 				}
 				wg.Wait()
+			}
+			/*s.mutex.Lock()
+			count += 1
+			total += chunkList[0].count
+			fmt.Printf("request count: %d and chunk count: %d and total count: %d \n", count, chunkList[0].count,total)
+			s.mutex.Unlock()*/
+			e := writeKv(tableFile, tagKv, chunkList)
+			if e != nil {
+				log.Println("write kv storage failed !", e)
 			}
 		}
 	}
@@ -757,7 +841,11 @@ func (s *kv) spiltTimeRange(minTime,maxTime int64) []timeRange {
 }
 
 
+
+// 这部分可以进行性能优化，负责将本地的数据文件的时间范围信息，注册到元数据，而不必每次都进行数据文件的扫描
+
 func (s *kv) scanDataDir(dataBase,tableName string,minTime,maxTime int64) map[string]timeRange {
+	//按照配置的时间范围，对数据进行时间切片，将数据分割
 	timeRangeList:=s.spiltTimeRange(minTime,maxTime)
 	tableFileMap:=make(map[string]timeRange,0)
 	if timeRangeList != nil && len(timeRangeList) > 0 {
@@ -770,41 +858,68 @@ func (s *kv) scanDataDir(dataBase,tableName string,minTime,maxTime int64) map[st
 				fileList,_:=ioutil.ReadDir(dataBaseDir)
 				if len(fileList) > 0 {
 				   for _,file:=range fileList {
-					   if !strings.HasSuffix(file.Name(),"lock") {
+				   	   tableFileMap=s.setTableFile(dataBase,tableName,timeRange,file.Name())
+					  /* if !strings.HasSuffix(file.Name(),"lock") {
 						   tableInfo:=strings.Split(file.Name(),"-")
 						   tn:=tableInfo[0]
 						   st:=tableInfo[1]
 						   et:=strings.Split(tableInfo[2],".")[0]
 						   if strings.Compare(tn,tableName) == 0 {
-							   if strings.Compare(startTime, st) >= 0 && strings.Compare(startTime, et) < 0 && strings.Compare(endTime, et) <= 0 {
+						   	   //根据数据按照时间的切片范围，获取对应的数据文件，数据正好落在st-et数据文件范围内
+							   if strings.Compare(startTime, st) >= 0 && strings.Compare(startTime, et) < 0 && strings.Compare(endTime, et) < 0 {
 								   tableFile = dataBaseDir + sep + file.Name()
 								   tableFileMap[tableFile]=timeRange
 							   }
-							   if strings.Compare(startTime,st) < 0 && strings.Compare(endTime,st) >0 && strings.Compare(endTime,et) < 0 {
+							   //数据落在 st-et 的左-半中部分，这个时候数据将会再次根据时间范围进行切片starttime - st 和 st- endime
+							   if strings.Compare(startTime,st) < 0 && strings.Compare(endTime,st) >= 0 && strings.Compare(endTime,et) < 0 {
 								   tableFile = dataBaseDir + sep + file.Name()
 								   startTime,_:=strconv.ParseInt(st, 10, 64)
 								   tableFileMap[tableFile]= newTimeRange(startTime,timeRange.endTime)
 								   tableFile = dataBaseDir+ sep + tableName +"-"+strconv.FormatInt(startTime - s.duration.Nanoseconds(),10)+"-"+st+".db"
-								   tableFileMap[tableFile]=newTimeRange(startTime-s.duration.Nanoseconds(),startTime)
+								   tableFileMap[tableFile]=newTimeRange(timeRange.startTime,startTime)
 							   }
+							   //数据落在 st-et 的右-半中部分，数据将会被分成starttime-et 和 et-endtime
 							   if strings.Compare(startTime,st) >= 0 &&  strings.Compare(startTime,et) < 0 && strings.Compare(endTime,et) > 0 {
 								   tableFile = dataBaseDir + sep + file.Name()
 								   endTime,_:=strconv.ParseInt(et, 10, 64)
 								   tableFileMap[tableFile]= newTimeRange(timeRange.startTime,endTime)
 								   tableFile = dataBaseDir+ sep + tableName+"-"+et+"-"+strconv.FormatInt(endTime + s.duration.Nanoseconds(),10)+".db"
-								   tableFileMap[tableFile]=newTimeRange(endTime,endTime+s.duration.Nanoseconds())
+								   tableFileMap[tableFile]=newTimeRange(endTime,timeRange.endTime)
+							   }
+							   //数据落在st-et的左半部分
+                               if strings.Compare(startTime,st) < 0 && strings.Compare(endTime,st) <0 {
+								   startTime,_:=strconv.ParseInt(st, 10, 64)
+								   tableFile = dataBaseDir+ sep + tableName +"-"+strconv.FormatInt(startTime - s.duration.Nanoseconds(),10)+"-"+st+".db"
+								   ok:=utils.CheckFileIsExist(tableFile)
+								   if !ok {
+									   db:=openDB(tableFile)
+									   db.Close()
+								   }
+                               }
+							   //数据落在st-et的右半部分
+							   if strings.Compare(startTime,et) > 0 && strings.Compare(endTime,et) > 0 {
+								   endTime,_:=strconv.ParseInt(et, 10, 64)
+								   tableFile = dataBaseDir+ sep + tableName+"-"+et+"-"+strconv.FormatInt(endTime + s.duration.Nanoseconds(),10)+".db"
+								   //tableFileMap[tableFile]=newTimeRange(endTime,endTime+s.duration.Nanoseconds())
+								   ok:=utils.CheckFileIsExist(tableFile)
+								   if !ok {
+									   db:=openDB(tableFile)
+									   db.Close()
+								   }
 							   }
 						   }
-					   }
+					   }*/
 				   }
 				} else {
 					if (timeRange.endTime - timeRange.startTime) < s.duration.Nanoseconds() {
 						tableFile=dataBaseDir+sep+tableName+"-"+startTime+"-"+ strconv.FormatInt(timeRange.startTime+s.duration.Nanoseconds(),10)+".db"
 						tableFileMap[tableFile]=newTimeRange(timeRange.startTime,timeRange.startTime+s.duration.Nanoseconds())
 					}
-					if (timeRange.endTime - timeRange.startTime) >= s.duration.Nanoseconds() {
-						tableFile=dataBaseDir+sep+tableName+"-"+startTime+"-"+endTime+".db"
-						tableFileMap[tableFile]=timeRange
+					if (timeRange.endTime - timeRange.startTime) == s.duration.Nanoseconds() {
+						tableFile=dataBaseDir+sep+tableName+"-"+startTime+"-"+ strconv.FormatInt(timeRange.startTime+s.duration.Nanoseconds(),10)+".db"
+						tableFileMap[tableFile]=newTimeRange(timeRange.startTime,timeRange.startTime+s.duration.Nanoseconds())
+						tableFile=dataBaseDir+sep+tableName+"-"+endTime+"-"+ strconv.FormatInt(timeRange.endTime+s.duration.Nanoseconds(),10)+".db"
+						tableFileMap[tableFile]=newTimeRange(timeRange.endTime,timeRange.endTime)
 					}
 				}
 			} else {
@@ -815,12 +930,14 @@ func (s *kv) scanDataDir(dataBase,tableName string,minTime,maxTime int64) map[st
 					log.Println("failed create data dir",s.dataDir[n]+dataBase,e)
 				}
 				if (timeRange.endTime - timeRange.startTime) < s.duration.Nanoseconds() {
-					tableFile=s.dataDir[n]+dataBase+sep+tableName+"-"+startTime+"-"+ strconv.FormatInt(timeRange.startTime+s.duration.Nanoseconds(),10)+".db"
+					tableFile=dataBaseDir+sep+tableName+"-"+startTime+"-"+ strconv.FormatInt(timeRange.startTime+s.duration.Nanoseconds(),10)+".db"
 					tableFileMap[tableFile]=newTimeRange(timeRange.startTime,timeRange.startTime+s.duration.Nanoseconds())
 				}
-				if (timeRange.endTime - timeRange.startTime) >= s.duration.Nanoseconds() {
-					tableFile=s.dataDir[n]+dataBase+sep+tableName+"-"+startTime+"-"+endTime+".db"
-					tableFileMap[tableFile]=timeRange
+				if (timeRange.endTime - timeRange.startTime) == s.duration.Nanoseconds() {
+					tableFile=dataBaseDir+sep+tableName+"-"+startTime+"-"+ strconv.FormatInt(timeRange.startTime+s.duration.Nanoseconds(),10)+".db"
+					tableFileMap[tableFile]=newTimeRange(timeRange.startTime,timeRange.startTime+s.duration.Nanoseconds())
+					tableFile=dataBaseDir+sep+tableName+"-"+endTime+"-"+ strconv.FormatInt(timeRange.endTime+s.duration.Nanoseconds(),10)+".db"
+					tableFileMap[tableFile]=newTimeRange(timeRange.endTime,timeRange.endTime)
 				}
 			}
 		}
@@ -837,6 +954,92 @@ func (s *kv) dataBaseDirIsExist(dataBase string) (string,bool) {
 	}
 	return "",false
 }
+
+func (s *kv) setTableFile(dataBase,tableName string,tr timeRange,fileName string) map[string]timeRange {
+	var tableFile string
+	tableFileMap:=make(map[string]timeRange,0)
+	startTime:= strconv.FormatInt(tr.startTime,10)
+	endTime:= strconv.FormatInt(tr.endTime,10)
+	dataBaseDir,_:=s.dataBaseDirIsExist(dataBase)
+	if !strings.HasSuffix(fileName, "lock") {
+		tableInfo := strings.Split(fileName, "-")
+		tn := tableInfo[0]
+		st := tableInfo[1]
+		et := strings.Split(tableInfo[2], ".")[0]
+		if strings.Compare(tn, tableName) == 0 {
+			ok,f:=s.isLeftPart(startTime, st, endTime, dataBaseDir, tableName)
+			if ok {
+				s.setTableFile(dataBase, tableName,tr,f)
+			}
+			ok,f=s.isRightPart(startTime, endTime, et, dataBaseDir, tableName)
+			if ok {
+				s.setTableFile(dataBase, tableName, tr,f)
+			}
+			//根据数据按照时间的切片范围，获取对应的数据文件，数据正好落在st-et数据文件范围内
+			if strings.Compare(startTime, st) >= 0 && strings.Compare(startTime, et) < 0 && strings.Compare(endTime, et) < 0 {
+				tableFile = dataBaseDir + sep + fileName
+				tableFileMap[tableFile] = tr
+			}
+			//数据落在 st-et 的左-半中部分，这个时候数据将会再次根据时间范围进行切片starttime - st 和 st- endime
+			if strings.Compare(startTime, st) < 0 && strings.Compare(endTime, st) >= 0 && strings.Compare(endTime, et) < 0 {
+				tableFile = dataBaseDir + sep + fileName
+				startTime, _ := strconv.ParseInt(st, 10, 64)
+				tableFileMap[tableFile] = newTimeRange(startTime, tr.endTime)
+				tableFile = dataBaseDir + sep + tableName + "-" + strconv.FormatInt(startTime-s.duration.Nanoseconds(), 10) + "-" + st + ".db"
+				tableFileMap[tableFile] = newTimeRange(tr.startTime, startTime)
+			}
+			//数据落在 st-et 的右-半中部分，数据将会被分成starttime-et 和 et-endtime
+			if strings.Compare(startTime, st) >= 0 && strings.Compare(startTime, et) < 0 && strings.Compare(endTime, et) > 0 {
+				tableFile = dataBaseDir + sep + fileName
+				endTime, _ := strconv.ParseInt(et, 10, 64)
+				tableFileMap[tableFile] = newTimeRange(tr.startTime, endTime)
+				tableFile = dataBaseDir + sep + tableName + "-" + et + "-" + strconv.FormatInt(endTime+s.duration.Nanoseconds(), 10) + ".db"
+				tableFileMap[tableFile] = newTimeRange(endTime, tr.endTime)
+			}
+		}
+	}
+	return tableFileMap
+
+}
+
+
+func (s *kv) isLeftPart(startTime,st,endTime,dataBaseDir,tableName string ) (bool,string) {
+	//数据落在st-et的左半部分
+	var fileName string
+	if strings.Compare(startTime,st) < 0 && strings.Compare(endTime,st) <0 {
+		startTime,_:=strconv.ParseInt(st, 10, 64)
+		fileName=tableName +"-"+strconv.FormatInt(startTime - s.duration.Nanoseconds(),10)+"-"+st+".db"
+		tableFile:=dataBaseDir+ sep + fileName
+		ok:=utils.CheckFileIsExist(tableFile)
+		if !ok {
+			db:=openDB(tableFile)
+			db.Close()
+		}
+		return true,fileName
+	}
+	return false,fileName
+}
+
+
+
+
+func (s *kv) isRightPart(startTime,endTime,et,dataBaseDir,tableName string ) (bool,string) {
+	//数据落在st-et的右半部分
+	var fileName string
+	if strings.Compare(startTime,et) > 0 && strings.Compare(endTime,et) > 0 {
+		endTime,_:=strconv.ParseInt(et, 10, 64)
+		fileName=tableName+"-"+et+"-"+strconv.FormatInt(endTime + s.duration.Nanoseconds(),10)+".db"
+		tableFile:=dataBaseDir+ sep + fileName
+		ok:=utils.CheckFileIsExist(tableFile)
+		if !ok {
+			db:=openDB(tableFile)
+			db.Close()
+		}
+		return true,fileName
+	}
+	return false,fileName
+}
+
 
 
 func (s *kv) getTableFile(dataBase,tableName,startTime,endTime string) map[string]bool {
