@@ -31,7 +31,7 @@ type encoder struct {
 
 // NewTimeEncoder returns a TimeEncoder with an initial buffer ready to hold sz bytes.
 func NewTimeEncoder(sz int) TimeEncoder {
-	return &encoder {
+	return &encoder{
 		ts:  make([]uint64, 0, sz),
 		enc: simple8b.NewEncoder(),
 	}
@@ -82,7 +82,6 @@ func (e *encoder) reduce() (max, divisor uint64, rle bool, deltas []uint64) {
 	return
 }
 
-
 // Bytes returns the encoded bytes of all written times.
 func (e *encoder) Bytes() ([]byte, error) {
 	if len(e.ts) == 0 {
@@ -105,7 +104,6 @@ func (e *encoder) Bytes() ([]byte, error) {
 
 	return e.encodePacked(div, dts)
 }
-
 
 func (e *encoder) encodePacked(div uint64, dts []uint64) ([]byte, error) {
 	// Only apply the divisor if it's greater than 1 since division is expensive.

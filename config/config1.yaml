@@ -22,7 +22,7 @@ metastore:
   metaAddr: ["127.0.0.1:2379"]
   metaPrefix: "/silver/metaData/"
   nodePrefix: "/sliver/node/"
-  timeout : 10
+  timeout: 10
   heartbeat: 5
 discovery:
   timeout: 10

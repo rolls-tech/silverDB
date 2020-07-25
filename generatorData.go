@@ -13,17 +13,16 @@ import (
 )
 
 type deviceData struct {
-	deviceId string
+	deviceId    string
 	deviceGroup string
-	deviceName string
+	deviceName  string
 	temperature int
-	humidity float64
-	status bool
+	humidity    float64
+	status      bool
 }
 
-const groupPrefix="group"
-const namePrefix="dev"
-
+const groupPrefix = "group"
+const namePrefix = "dev"
 
 func generatorTemperature() int {
 	// 0-100
@@ -39,7 +38,7 @@ func generatorHumidity() float64 {
 
 func generatorStatus() bool {
 	rand.Seed(time.Now().UnixNano())
-	status:=rand.Intn(2)
+	status := rand.Intn(2)
 	if status == 1 {
 		return true
 	}
@@ -47,24 +46,24 @@ func generatorStatus() bool {
 }
 
 func NewDeviceData(id int) *deviceData {
-	return &deviceData {
-		deviceId: strconv.Itoa(id),
-		deviceGroup: fmt.Sprintf("%s%d",groupPrefix,id),
-		deviceName: fmt.Sprintf("%s%d",namePrefix,id),
+	return &deviceData{
+		deviceId:    strconv.Itoa(id),
+		deviceGroup: fmt.Sprintf("%s%d", groupPrefix, id),
+		deviceName:  fmt.Sprintf("%s%d", namePrefix, id),
 		temperature: generatorTemperature(),
-		humidity: generatorHumidity(),
-		status: generatorStatus(),
+		humidity:    generatorHumidity(),
+		status:      generatorStatus(),
 	}
 }
 
 func (d *deviceData) generatorData(id int64) string {
-  data:= fmt.Sprintf("%s,%s,%s %d,%f,%t,%d",d.deviceId,d.deviceGroup,d.deviceName,
-  	d.temperature,d.humidity,d.status,time.Now().UnixNano()+id)
-  return data
+	data := fmt.Sprintf("%s,%s,%s %d,%f,%t,%d", d.deviceId, d.deviceGroup, d.deviceName,
+		d.temperature, d.humidity, d.status, time.Now().UnixNano()+id)
+	return data
 }
 
 var dataDir string
-var fileNums,deviceNums,deviceRecords int
+var fileNums, deviceNums, deviceRecords int
 
 func init() {
 	flag.StringVar(&dataDir, "dir", "/Volumes/info/data/", "device data dir")
@@ -79,48 +78,48 @@ func init() {
 }
 
 func main() {
-	_,err:=os.Stat(dataDir)
+	_, err := os.Stat(dataDir)
 	if os.IsNotExist(err) {
-       err:=os.Mkdir(dataDir,os.ModePerm)
-       if err !=nil {
-       	   log.Fatal("mkdir "+dataDir+" is failed ! ",err)
-	   }
+		err := os.Mkdir(dataDir, os.ModePerm)
+		if err != nil {
+			log.Fatal("mkdir "+dataDir+" is failed ! ", err)
+		}
 	}
-	if deviceNums*deviceRecords % fileNums == 0 && deviceNums > fileNums {
-	  var wg sync.WaitGroup
-	  //var mu sync.Mutex
-	  nums:=deviceNums*deviceRecords / fileNums
-	  for i:=0; i< fileNums; i++ {
-	  	  wg.Add(1)
-		  file,err:=os.Create(dataDir+fmt.Sprintf("%s%d","data_",i))
-		  if err != nil {
-			  log.Fatal("create dataFile is failed ! ",err)
-		  }
-		  go func(file *os.File,wg *sync.WaitGroup,i int) {
-		  	defer file.Close()
-		  	j:=0
-		  	recordN:=1
-		  	writer:=bufio.NewWriterSize(file,1 << 20 )
-		  	for recordN <= deviceNums / fileNums  && j < nums {
-				  recordM:=0
-				  for recordM < deviceRecords {
-					  deviceData:=NewDeviceData(recordN+(deviceNums/fileNums) * i)
-					  data:=deviceData.generatorData(int64(recordM))
-					  _,err:=writer.WriteString(data+"\n")
-					  if err != nil {
-						  log.Fatal("write data file is failed ! ",err)
-					  }
-					  recordM++
-					  j++
-				  }
-				  recordN++
-			  }
-			  writer.Flush()
-			  wg.Done()
-		  }(file,&wg,i)
-	  }
-	  wg.Wait()
-    } else {
-  	  log.Fatal("ensure every dataFile record nums is same")
-    }
+	if deviceNums*deviceRecords%fileNums == 0 && deviceNums > fileNums {
+		var wg sync.WaitGroup
+		//var mu sync.Mutex
+		nums := deviceNums * deviceRecords / fileNums
+		for i := 0; i < fileNums; i++ {
+			wg.Add(1)
+			file, err := os.Create(dataDir + fmt.Sprintf("%s%d", "data_", i))
+			if err != nil {
+				log.Fatal("create dataFile is failed ! ", err)
+			}
+			go func(file *os.File, wg *sync.WaitGroup, i int) {
+				defer file.Close()
+				j := 0
+				recordN := 1
+				writer := bufio.NewWriterSize(file, 1<<20)
+				for recordN <= deviceNums/fileNums && j < nums {
+					recordM := 0
+					for recordM < deviceRecords {
+						deviceData := NewDeviceData(recordN + (deviceNums/fileNums)*i)
+						data := deviceData.generatorData(int64(recordM))
+						_, err := writer.WriteString(data + "\n")
+						if err != nil {
+							log.Fatal("write data file is failed ! ", err)
+						}
+						recordM++
+						j++
+					}
+					recordN++
+				}
+				writer.Flush()
+				wg.Done()
+			}(file, &wg, i)
+		}
+		wg.Wait()
+	} else {
+		log.Fatal("ensure every dataFile record nums is same")
+	}
 }

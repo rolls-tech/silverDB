@@ -15,160 +15,152 @@ import (
 	"strings"
 )
 
-
-func (s *Server) resolveWriteRequest(request *bufio.Reader,c chan bool) (*point.WritePoint,string,[]byte,error){
-    // 解析客户端写请求
-	wp,buf,e:=s.writePoint(request)
+func (s *Server) resolveWriteRequest(request *bufio.Reader, c chan bool) (*point.WritePoint, string, []byte, error) {
+	// 解析客户端写请求
+	wp, buf, e := s.writePoint(request)
 	if e != nil {
-		return wp,"",buf,e
+		return wp, "", buf, e
 	}
-	dataBase:=wp.DataBase
-	tableName:=wp.TableName
+	dataBase := wp.DataBase
+	tableName := wp.TableName
 	var tagKv string
 	if wp.Tags != nil {
 		st := utils.NewSortTags(wp.Tags)
 		sort.Sort(st)
 		for _, tags := range st {
-			temp:=tags.TagK+"="+tags.TagV+";"
-			tagKv+=temp
+			temp := tags.TagK + "=" + tags.TagV + ";"
+			tagKv += temp
 		}
 	}
-	seriesKey:=dataBase+tableName+tagKv
+	seriesKey := dataBase + tableName + tagKv
 	addr, ok := s.ShouldProcess(seriesKey)
 	if !ok {
-		if addr !="" {
-			if s.AddrMap !=nil {
-				storageAddr:=s.AddrMap[addr]
-				client:=client2.NewClient(storageAddr)
-				status:=client.ExecuteProxyWrite(buf)
+		if addr != "" {
+			if s.AddrMap != nil {
+				storageAddr := s.AddrMap[addr]
+				client := client2.NewClient(storageAddr)
+				status := client.ExecuteProxyWrite(buf)
 				log.Println("execute write proxy request ! ", storageAddr)
 				if status {
-                    c <- true
-				}else {
+					c <- true
+				} else {
 					c <- false
 				}
 			}
 		}
-		return nil,"",nil,nil
+		return nil, "", nil, nil
 	}
-	return wp,tagKv,buf,nil
+	return wp, tagKv, buf, nil
 }
 
-func (s *Server) resolverReadRequest(conn net.Conn, request *bufio.Reader) (*point.ReadPoint,[]byte,string,map[string]bool,error) {
-	rp,buf,e := s.readPoint(request)
+func (s *Server) resolverReadRequest(conn net.Conn, request *bufio.Reader) (*point.ReadPoint, []byte, string, map[string]bool, error) {
+	rp, buf, e := s.readPoint(request)
 	var tagKv string
 	if e != nil {
-		return rp,buf,tagKv,nil,e
+		return rp, buf, tagKv, nil, e
 	}
 	if rp.Tags != nil {
 		st := utils.NewSortTags(rp.Tags)
 		sort.Sort(st)
 		for _, tags := range st {
-			temp:=tags.TagK+tags.TagV
-			tagKv+=temp
+			temp := tags.TagK + tags.TagV
+			tagKv += temp
 		}
 	}
-	databaseName:=rp.DataBase
-	tableName:=rp.TableName
-	addrList,ok:=s.LocalMeta[databaseName+tableName]
+	databaseName := rp.DataBase
+	tableName := rp.TableName
+	addrList, ok := s.LocalMeta[databaseName+tableName]
 	if !ok {
-		log.Println("not find meta data ",databaseName,tableName)
-		_, e := conn.Write([]byte(fmt.Sprintf("M%d,%s", len("f"),"f")))
+		log.Println("not find meta data ", databaseName, tableName)
+		_, e := conn.Write([]byte(fmt.Sprintf("M%d,%s", len("f"), "f")))
 		if e != nil {
-			log.Println("client meta data return failed",e.Error())
-			return rp,buf,tagKv,addrList,e
+			log.Println("client meta data return failed", e.Error())
+			return rp, buf, tagKv, addrList, e
 		}
 	}
-	return rp,buf,tagKv,addrList,e
+	return rp, buf, tagKv, addrList, e
 }
 
-
-func (s *Server) resolverProxyRequest(request *bufio.Reader) (*point.ReadPoint,string,error) {
+func (s *Server) resolverProxyRequest(request *bufio.Reader) (*point.ReadPoint, string, error) {
 	var tagKv string
-	rp,_,e:=s.readPoint(request)
-	if e !=nil {
-		return rp,tagKv,e
+	rp, _, e := s.readPoint(request)
+	if e != nil {
+		return rp, tagKv, e
 	}
 	if rp.Tags != nil {
 		st := utils.NewSortTags(rp.Tags)
 		sort.Sort(st)
 		for _, tags := range st {
-			tagKv+=tags.TagK+tags.TagV
+			tagKv += tags.TagK + tags.TagV
 		}
 	}
-	return rp,tagKv,nil
+	return rp, tagKv, nil
 }
 
-
-func (s *Server) readPoint(request *bufio.Reader) (*point.ReadPoint,[]byte,error) {
-	l1,e:= readLen(request)
-	if e !=nil {
-		log.Println("not support message format !",e.Error())
+func (s *Server) readPoint(request *bufio.Reader) (*point.ReadPoint, []byte, error) {
+	l1, e := readLen(request)
+	if e != nil {
+		log.Println("not support message format !", e.Error())
 	}
 	dLen, e := strconv.Atoi(l1)
-	buf := make([]byte,dLen)
+	buf := make([]byte, dLen)
 	_, e = io.ReadFull(request, buf)
 	if e != nil {
-		return nil,buf,e
+		return nil, buf, e
 	}
-	data:=&point.ReadPoint{}
-	e=proto.Unmarshal(buf,data)
+	data := &point.ReadPoint{}
+	e = proto.Unmarshal(buf, data)
 	if e != nil {
-		log.Println(" readPoint deserialization failed! ",e.Error())
-		return nil,buf,e
+		log.Println(" readPoint deserialization failed! ", e.Error())
+		return nil, buf, e
 	}
-	return data,buf,e
+	return data, buf, e
 
 }
 
-func (s *Server) writePoint(request *bufio.Reader) (*point.WritePoint,[]byte,error){
-	l1,e:= readLen(request)
-	if e !=nil {
-		log.Println("not support message format !",e.Error())
-		return nil,nil,e
+func (s *Server) writePoint(request *bufio.Reader) (*point.WritePoint, []byte, error) {
+	l1, e := readLen(request)
+	if e != nil {
+		log.Println("not support message format !", e.Error())
+		return nil, nil, e
 	}
 	dLen, e := strconv.Atoi(l1)
-	buf := make([]byte,dLen)
+	buf := make([]byte, dLen)
 	_, e = io.ReadFull(request, buf)
 	if e != nil {
-		return nil,nil,e
+		return nil, nil, e
 	}
-	data:=&point.WritePoint{}
-	e=proto.Unmarshal(buf,data)
+	data := &point.WritePoint{}
+	e = proto.Unmarshal(buf, data)
 	if e != nil {
-		log.Println(" writePoint deserialization failed! ",e.Error())
-		return nil,nil,e
+		log.Println(" writePoint deserialization failed! ", e.Error())
+		return nil, nil, e
 	}
-	return data,buf,e
+	return data, buf, e
 }
 
 func (s *Server) metaDataService() {
-	e:=s.MetaDataService()
-	if e !=nil {
+	e := s.MetaDataService()
+	if e != nil {
 		log.Println(e)
 	}
 }
 
 func (s *Server) nodeDataService() {
-	e:=s.NodeDataService()
-	if e !=nil {
+	e := s.NodeDataService()
+	if e != nil {
 		log.Println(e)
 	}
 }
 
 func readLen(r *bufio.Reader) (string, error) {
 	tmp, e := r.ReadString(',')
-	if tmp == ""  {
+	if tmp == "" {
 		return "", nil
 	}
 	if e != nil {
-		log.Println("parse request failed ! ",e.Error())
+		log.Println("parse request failed ! ", e.Error())
 		return "", e
 	}
-	return strings.ReplaceAll(tmp,",",""),nil
+	return strings.ReplaceAll(tmp, ",", ""), nil
 }
-
-
-
-
-

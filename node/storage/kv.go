@@ -2,7 +2,6 @@ package storage
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"io/ioutil"
 	"log"
@@ -18,51 +17,49 @@ import (
 	"time"
 )
 
-const sep=string(os.PathSeparator)
+const sep = string(os.PathSeparator)
 
 type kv struct {
-	mutex     sync.RWMutex
-	dataDir   []string
-	isCompressed bool
-	duration time.Duration
+	mutex         sync.RWMutex
+	dataDir       []string
+	isCompressed  bool
+	duration      time.Duration
 	compressCount int
 }
 
-func NewKv(dataDir []string,isCompress bool,duration time.Duration,compressCount int) *kv {
+func NewKv(dataDir []string, isCompress bool, duration time.Duration, compressCount int) *kv {
 	if len(dataDir) > 0 {
-		for _,dir:=range dataDir {
-			ok:=utils.CheckFileIsExist(dir)
+		for _, dir := range dataDir {
+			ok := utils.CheckFileIsExist(dir)
 			if !ok {
-				e:=os.MkdirAll(dir,os.ModePerm)
-				if e !=nil {
-					log.Println("failed create data dir",dir,e)
+				e := os.MkdirAll(dir, os.ModePerm)
+				if e != nil {
+					log.Println("failed create data dir", dir, e)
 				}
 			}
 		}
 	}
 	return &kv{
-		mutex:        sync.RWMutex{},
-		dataDir:      dataDir,
-		isCompressed: isCompress,
-		duration: duration,
+		mutex:         sync.RWMutex{},
+		dataDir:       dataDir,
+		isCompressed:  isCompress,
+		duration:      duration,
 		compressCount: compressCount,
 	}
 }
 
-
-
 type compressPoints struct {
-	maxTime int64
-	minTime int64
-	chunk compress.Chunk
-	timeChunk []byte
+	maxTime    int64
+	minTime    int64
+	chunk      compress.Chunk
+	timeChunk  []byte
 	valueChunk []byte
-	fieldKey string
-	count int
-	maxValue []byte
-	minValue []byte
+	fieldKey   string
+	count      int
+	maxValue   []byte
+	minValue   []byte
 	metricType int32
-	precision int32
+	precision  int32
 }
 
 var dnCount int
@@ -73,31 +70,31 @@ func (s *kv) writeDataLinked(dn *dataNodeLinked) {
 		// 这里逻辑需要优化
 		// 1、将数据按照metricKey,进行合并
 		// 2、将合并的数据按照设置的数据块的的大小进行分块切割；
-		nodeMetric:=newNodeMetricData()
-		current:= dn.head.next
+		nodeMetric := newNodeMetricData()
+		current := dn.head.next
 		for current != nil {
-		  if current.fields !=nil {
-		     for key,value:=range current.fields {
-		     	 fieldData,ok:=nodeMetric.metricData[key]
-		     	 if ok {
-					 pointKv := utils.NewSortMap(value.Metric)
-					 sort.Sort(pointKv)
-					 fieldData.points=append(fieldData.points,pointKv...)
-				 } else {
-					 pointKv := utils.NewSortMap(value.Metric)
-					 sort.Sort(pointKv)
-				 	 data:=newMetricData(key,pointKv,value.MetricType,1)
-				     nodeMetric.metricData[key]=data
-				 }
-			 }
-		  }
-		    current=current.next
-		/*	s.mutex.Lock()
-			dnCount+=1
-			log.Println("buffer dn data count: ",dnCount)
-			s.mutex.Unlock()*/
+			if current.fields != nil {
+				for key, value := range current.fields {
+					fieldData, ok := nodeMetric.metricData[key]
+					if ok {
+						pointKv := utils.NewSortMap(value.Metric)
+						sort.Sort(pointKv)
+						fieldData.points = append(fieldData.points, pointKv...)
+					} else {
+						pointKv := utils.NewSortMap(value.Metric)
+						sort.Sort(pointKv)
+						data := newMetricData(key, pointKv, value.MetricType, 1)
+						nodeMetric.metricData[key] = data
+					}
+				}
+			}
+			current = current.next
+			/*	s.mutex.Lock()
+				dnCount+=1
+				log.Println("buffer dn data count: ",dnCount)
+				s.mutex.Unlock()*/
 		}
-		s.writeKv(dn.dataBase,dn.tableName,dn.tagKv,nodeMetric)
+		s.writeKv(dn.dataBase, dn.tableName, dn.tagKv, nodeMetric)
 		/*nodeData:=make([]*metricData,0)
 		current := dn.head
 		for current != nil {
@@ -110,31 +107,30 @@ func (s *kv) writeDataLinked(dn *dataNodeLinked) {
 	}(dn)
 }
 
-
 type nodeMetricData struct {
 	metricData map[string]*metricData
 }
 
-func newNodeMetricData() *nodeMetricData{
+func newNodeMetricData() *nodeMetricData {
 	return &nodeMetricData{
-		metricData: make(map[string]*metricData,0),
+		metricData: make(map[string]*metricData, 0),
 	}
 }
 
-var writeCount,writetotal int
+var writeCount, writetotal int
 
-func (s *kv) writeKv(database,table,tagKv string,nodeMetricData *nodeMetricData) {
+func (s *kv) writeKv(database, table, tagKv string, nodeMetricData *nodeMetricData) {
 	switch s.isCompressed {
 	case true:
 
-	/*	s.mutex.Lock()
-		writeCount+=1
-		writetotal+= len(nodeMetricData.metricData["status"].points)
-		fmt.Printf("receive request count: %d and write total %d \n",writeCount,writetotal)
-		fmt.Println("=================================")
-		s.mutex.Unlock()*/
+		/*	s.mutex.Lock()
+			writeCount+=1
+			writetotal+= len(nodeMetricData.metricData["status"].points)
+			fmt.Printf("receive request count: %d and write total %d \n",writeCount,writetotal)
+			fmt.Println("=================================")
+			s.mutex.Unlock()*/
 
-		fieldKeyDataList,fileIndexList:=s.splitDataByCompressCount(nodeMetricData)
+		fieldKeyDataList, fileIndexList := s.splitDataByCompressCount(nodeMetricData)
 
 		//测试数据
 		/*s.mutex.Lock()
@@ -143,19 +139,15 @@ func (s *kv) writeKv(database,table,tagKv string,nodeMetricData *nodeMetricData)
 			  fmt.Printf("count: %d\n",splitDataCount)
 		}
 		s.mutex.Unlock()
-        */
+		*/
 
 		//generateDataFile
-		tableFileDataList:=s.generateDataFile(database,table,fieldKeyDataList,fileIndexList)
+		tableFileDataList := s.generateDataFile(database, table, fieldKeyDataList, fileIndexList)
 
-
-		s.compressTask(tagKv,tableFileDataList)
+		s.compressTask(tagKv, tableFileDataList)
 	}
 
 }
-
-
-
 
 /*func (s *kv) writeDataKv(dataBase,table,tagKv string,nodeData []*metricData) {
 	nodeMetricData:=newNodeMetricData()
@@ -202,120 +194,115 @@ func (s *kv) writeKv(database,table,tagKv string,nodeMetricData *nodeMetricData)
 	}
 }*/
 
-
 type fileIndex struct {
 	startIndex int
-	endIndex int
-	tableFile string
-	dataIndex int
+	endIndex   int
+	tableFile  string
+	dataIndex  int
 }
 
-func newFileIndex() *fileIndex{
+func newFileIndex() *fileIndex {
 	return &fileIndex{}
 }
 
-
 type timeIndex struct {
-	index int
-	minTime int64
-	maxTime int64
+	index     int
+	minTime   int64
+	maxTime   int64
 	tableFile map[string]timeRange
 }
 
 func newTimeIndex() *timeIndex {
 	return &timeIndex{
-		tableFile: make(map[string]timeRange,0),
+		tableFile: make(map[string]timeRange, 0),
 	}
 }
 
-
 type dataIndex struct {
 	startIndex int
-	endIndex int
+	endIndex   int
 }
 
 func newDataIndex() *dataIndex {
 	return &dataIndex{}
 }
 
-
 func (s *kv) splitSizeArray(data *metricData) []*dataIndex {
-	dataIndexList:=make([]*dataIndex,0)
-	count:= len(data.points)
+	dataIndexList := make([]*dataIndex, 0)
+	count := len(data.points)
 	if count > 0 {
-		m:=count / s.compressCount
-		n:=count % s.compressCount
+		m := count / s.compressCount
+		n := count % s.compressCount
 		if m == 0 && n > 0 {
-			index:=newDataIndex()
+			index := newDataIndex()
 			index.startIndex = 0
-			index.endIndex = count -1
-			dataIndexList=append(dataIndexList,index)
+			index.endIndex = count - 1
+			dataIndexList = append(dataIndexList, index)
 		}
 		if m > 0 {
-			for k:=0; k < m; k++ {
-				index:=newDataIndex()
-				index.startIndex = k*s.compressCount
-				index.endIndex = (k+1)*s.compressCount
-				dataIndexList=append(dataIndexList,index)
+			for k := 0; k < m; k++ {
+				index := newDataIndex()
+				index.startIndex = k * s.compressCount
+				index.endIndex = (k + 1) * s.compressCount
+				dataIndexList = append(dataIndexList, index)
 			}
 			if n > 0 {
-				index:=newDataIndex()
-				index.startIndex=m*s.compressCount
-				index.endIndex=count-1
-				dataIndexList=append(dataIndexList,index)
+				index := newDataIndex()
+				index.startIndex = m * s.compressCount
+				index.endIndex = count - 1
+				dataIndexList = append(dataIndexList, index)
 			}
 		}
 	}
 	return dataIndexList
 }
 
-
-func (s *kv) splitDataByCompressCount(data *nodeMetricData) (map[string][]*metricData,[]timeIndex){
-	fieldKeyDataList:=make(map[string][]*metricData,0)
-	fileIndexList:=make([]timeIndex,0)
+func (s *kv) splitDataByCompressCount(data *nodeMetricData) (map[string][]*metricData, []timeIndex) {
+	fieldKeyDataList := make(map[string][]*metricData, 0)
+	fileIndexList := make([]timeIndex, 0)
 	var dataKey string
 	if data != nil {
-		for key,_:=range data.metricData {
-			    dataKey=key
+		for key, _ := range data.metricData {
+			dataKey = key
 		}
 		//获取切分的数据索引
-		indexList:=s.splitSizeArray(data.metricData[dataKey])
+		indexList := s.splitSizeArray(data.metricData[dataKey])
 
 		//按照fieldKey组装切分后的数据
-		for key,value:=range data.metricData {
-		   sortData:=utils.CombineSort(value.points)
-		   value.points=sortData
-		   _,ok:=fieldKeyDataList[key]
-		   if !ok {
-			   fieldKeyDataList[key]=make([]*metricData,0)
-		   }
+		for key, value := range data.metricData {
+			sortData := utils.CombineSort(value.points)
+			value.points = sortData
+			_, ok := fieldKeyDataList[key]
+			if !ok {
+				fieldKeyDataList[key] = make([]*metricData, 0)
+			}
 
-		   if len(indexList) > 0 {
-		   	 for _,index := range indexList {
-		   	 	point:=value.points[index.startIndex:index.endIndex+1]
-		   	    metric:=newMetricData(value.metric,point,value.metricType,value.precision)
-		   	    metric.minTime=value.points[index.startIndex].T
-		   	    metric.maxTime=value.points[index.endIndex].T
-		   	    metric.count= len(point)
-				 fieldKeyDataList[key]=append(fieldKeyDataList[key],metric)
-			 }
-		   }
+			if len(indexList) > 0 {
+				for _, index := range indexList {
+					point := value.points[index.startIndex : index.endIndex+1]
+					metric := newMetricData(value.metric, point, value.metricType, value.precision)
+					metric.minTime = value.points[index.startIndex].T
+					metric.maxTime = value.points[index.endIndex].T
+					metric.count = len(point)
+					fieldKeyDataList[key] = append(fieldKeyDataList[key], metric)
+				}
+			}
 		}
 
 		//获取时间分割索引
-		dataList,ok:=fieldKeyDataList[dataKey]
+		dataList, ok := fieldKeyDataList[dataKey]
 		if ok {
-		  for i,data:=range dataList {
-              fileIndex:=newTimeIndex()
-              fileIndex.minTime=data.minTime
-              fileIndex.maxTime=data.maxTime
-              fileIndex.index=i
-              fileIndexList=append(fileIndexList,*fileIndex)
-		  }
+			for i, data := range dataList {
+				fileIndex := newTimeIndex()
+				fileIndex.minTime = data.minTime
+				fileIndex.maxTime = data.maxTime
+				fileIndex.index = i
+				fileIndexList = append(fileIndexList, *fileIndex)
+			}
 		}
 	}
 
-	return fieldKeyDataList,fileIndexList
+	return fieldKeyDataList, fileIndexList
 }
 
 /*func (s *kv) splitData(nodeMetricData *nodeMetricData) map[string][]*metricData {
@@ -398,45 +385,42 @@ func (s *kv) splitDataByCompressCount(data *nodeMetricData) (map[string][]*metri
 
 var splitDataCount int
 
+func (s *kv) generateDataFile(dataBase, tableName string,
+	fieldKeyDataList map[string][]*metricData, timeIndexList []timeIndex) map[string][]*metricData {
 
-func (s *kv) generateDataFile(dataBase,tableName string,
-	fieldKeyDataList map[string][]*metricData,timeIndexList []timeIndex) map[string][]*metricData {
-
-	tableFileDataList:=make(map[string][]*metricData)
-
+	tableFileDataList := make(map[string][]*metricData)
 
 	var dataKey string
 
-	for key,_:=range fieldKeyDataList {
-		    dataKey=key
+	for key, _ := range fieldKeyDataList {
+		dataKey = key
 	}
 
-	dataList:=fieldKeyDataList[dataKey]
+	dataList := fieldKeyDataList[dataKey]
 
-
-	fileIndexList:=make([]fileIndex,0)
+	fileIndexList := make([]fileIndex, 0)
 
 	//按照文件的时间索引，配置时间范围的数据文件索引
 	if len(timeIndexList) > 0 {
-		for i,index:=range timeIndexList {
+		for i, index := range timeIndexList {
 			s.mutex.Lock()
-			tableFileTimeRange:=s.scanDataDir(dataBase,tableName,index.minTime,index.maxTime)
-			timeIndexList[i].tableFile=tableFileTimeRange
-			dataIndex:=index.index
-			data:=dataList[dataIndex]
-			if tableFileTimeRange !=nil {
-				for tableFile,tr:=range tableFileTimeRange {
-					 ok:=utils.CheckFileIsExist(tableFile)
-					  if !ok {
-					  	db:=openDB(tableFile)
-					  	db.Close()
-					  }
-					 fileIndex:=newFileIndex()
-					 fileIndex.tableFile=tableFile
-					 fileIndex.dataIndex=dataIndex
-					 fileIndex.startIndex=search(data.points,tr.startTime)
-					 fileIndex.endIndex=search(data.points,tr.endTime)
-					 fileIndexList=append(fileIndexList,*fileIndex)
+			tableFileTimeRange := s.scanDataDir(dataBase, tableName, index.minTime, index.maxTime)
+			timeIndexList[i].tableFile = tableFileTimeRange
+			dataIndex := index.index
+			data := dataList[dataIndex]
+			if tableFileTimeRange != nil {
+				for tableFile, tr := range tableFileTimeRange {
+					ok := utils.CheckFileIsExist(tableFile)
+					if !ok {
+						db := openDB(tableFile)
+						db.Close()
+					}
+					fileIndex := newFileIndex()
+					fileIndex.tableFile = tableFile
+					fileIndex.dataIndex = dataIndex
+					fileIndex.startIndex = search(data.points, tr.startTime)
+					fileIndex.endIndex = search(data.points, tr.endTime)
+					fileIndexList = append(fileIndexList, *fileIndex)
 				}
 			}
 			s.mutex.Unlock()
@@ -444,43 +428,41 @@ func (s *kv) generateDataFile(dataBase,tableName string,
 	}
 
 	//根据数据文件索引，进行数据切片
-	    for key,dataList:=range fieldKeyDataList {
-	    	dataList=fieldKeyDataList[key]
+	for key, dataList := range fieldKeyDataList {
+		dataList = fieldKeyDataList[key]
 
-			for _,fileIndex:= range fileIndexList {
+		for _, fileIndex := range fileIndexList {
 
-				_,ok:=tableFileDataList[fileIndex.tableFile]
+			_, ok := tableFileDataList[fileIndex.tableFile]
 
-				if !ok {
-					tableFileDataList[fileIndex.tableFile]=make([]*metricData,0)
-				}
-				data:=dataList[fileIndex.dataIndex]
-
-				point:=make([]utils.Point,0)
-
-				if fileIndex.endIndex < data.count-1 {
-					point=data.points[fileIndex.startIndex:fileIndex.endIndex]
-				}
-				if fileIndex.endIndex == data.count -1 {
-					point=data.points[fileIndex.startIndex:fileIndex.endIndex+1]
-				}
-				s.mutex.Lock()
-			  /* splitDataCount+=len(point)
-				 fmt.Printf("data point count: %d,startIndex: %d,endIndex:%d,total count: %d\n",
-					len(point),fileIndex.startIndex,fileIndex.endIndex,splitDataCount)
-				*/
-				metric:=newMetricData(key,point,data.metricType,data.precision)
-				metric.count= len(point)
-				metric.minTime=point[0].T
-				metric.maxTime=point[metric.count-1].T
-                tableFileDataList[fileIndex.tableFile]=append(tableFileDataList[fileIndex.tableFile],metric)
-				s.mutex.Unlock()
+			if !ok {
+				tableFileDataList[fileIndex.tableFile] = make([]*metricData, 0)
 			}
-	    }
+			data := dataList[fileIndex.dataIndex]
+
+			point := make([]utils.Point, 0)
+
+			if fileIndex.endIndex < data.count-1 {
+				point = data.points[fileIndex.startIndex:fileIndex.endIndex]
+			}
+			if fileIndex.endIndex == data.count-1 {
+				point = data.points[fileIndex.startIndex : fileIndex.endIndex+1]
+			}
+			s.mutex.Lock()
+			/* splitDataCount+=len(point)
+			 fmt.Printf("data point count: %d,startIndex: %d,endIndex:%d,total count: %d\n",
+				len(point),fileIndex.startIndex,fileIndex.endIndex,splitDataCount)
+			*/
+			metric := newMetricData(key, point, data.metricType, data.precision)
+			metric.count = len(point)
+			metric.minTime = point[0].T
+			metric.maxTime = point[metric.count-1].T
+			tableFileDataList[fileIndex.tableFile] = append(tableFileDataList[fileIndex.tableFile], metric)
+			s.mutex.Unlock()
+		}
+	}
 	return tableFileDataList
 }
-
-
 
 /*func (s *kv) generateDataFile(dataBase,tableName string,fieldKeyDataList map[string][]*metricData) map[string][]*metricData {
 	tableFileDataList:=make(map[string][]*metricData)
@@ -553,7 +535,6 @@ func (s *kv) generateDataFile(dataBase,tableName string,
 	return tableFileDataList
 }*/
 
-
 /*func (s *kv) setDataFile(dataBase,tableName string,fieldKeyDataList map[string][]*metricData) map[string][]*metricData {
 	tableFileDataList:=make(map[string][]*metricData)
 	if fieldKeyDataList != nil {
@@ -604,18 +585,17 @@ func (s *kv) generateDataFile(dataBase,tableName string,
 	return tableFileDataList
 }*/
 
-
 var total int
 var count int
 
 func (s *kv) writeData(tagKv string, tableFileChunkList map[string][]*compressPoints) {
 	if tableFileChunkList != nil {
 		for tableFile, chunkList := range tableFileChunkList {
-			s.mutex.Lock()
+			/*s.mutex.Lock()
 			count += 1
 			total += chunkList[0].count
-			fmt.Printf("request count: %d and chunk count: %d and total count: %d \n", count, chunkList[0].count,total)
-			s.mutex.Unlock()
+			fmt.Printf("request count: %d and chunk count: %d and total count: %d \n", count, chunkList[0].count, total)
+			s.mutex.Unlock()*/
 			if len(chunkList) > 0 {
 				go func(tableFile string, chunkList []*compressPoints) {
 					e := writeKv(tableFile, tagKv, chunkList)
@@ -630,30 +610,27 @@ func (s *kv) writeData(tagKv string, tableFileChunkList map[string][]*compressPo
 
 }
 
-
-
 type ChunkDataList []*chunkData
-
 
 func (cd ChunkDataList) Len() int {
 	return len(cd)
 }
 
-func (cd ChunkDataList) Less(i,j int) bool {
-	return bytes.Compare(cd[i].timestamp,cd[j].timestamp) < 0
+func (cd ChunkDataList) Less(i, j int) bool {
+	return bytes.Compare(cd[i].timestamp, cd[j].timestamp) < 0
 }
 
-func (cd ChunkDataList) Swap(i,j int) {
-	cd[i],cd[j]=cd[j],cd[i]
+func (cd ChunkDataList) Swap(i, j int) {
+	cd[i], cd[j] = cd[j], cd[i]
 }
 
 type filterData struct {
-	version int64
-	kv map[int64][]byte
-	datatype int32
+	version   int64
+	kv        map[int64][]byte
+	datatype  int32
 	precision int32
-	maxValue []byte
-	minValue []byte
+	maxValue  []byte
+	minValue  []byte
 }
 
 type filterDataList []*filterData
@@ -662,122 +639,119 @@ func (f filterDataList) Len() int {
 	return len(f)
 }
 
-func (f filterDataList) Less(i,j int) bool {
+func (f filterDataList) Less(i, j int) bool {
 	return f[i].version < f[j].version
 }
 
-func (f filterDataList) Swap(i,j int) {
-	f[i],f[j]=f[j],f[i]
+func (f filterDataList) Swap(i, j int) {
+	f[i], f[j] = f[j], f[i]
 }
-
 
 func newFilterData() *filterData {
 	return &filterData{
 		version: 0,
-		kv:      make(map[int64][]byte,0),
+		kv:      make(map[int64][]byte, 0),
 	}
 }
 
-func (s *kv) filterChunkDataList(chunkDataList ChunkDataList,startTime,endTime int64) *filterData {
-	data:=newFilterData()
+func (s *kv) filterChunkDataList(chunkDataList ChunkDataList, startTime, endTime int64) *filterData {
+	data := newFilterData()
 	if len(chunkDataList) > 0 {
 		sort.Sort(chunkDataList)
-		filterDataList:=make([]*filterData,0)
-		data.precision=chunkDataList[0].precision
-		data.datatype=chunkDataList[0].metricType
-		data.maxValue=chunkDataList[0].maxValue
-		data.minValue=chunkDataList[0].minValue
-		for _,chunkData:=range chunkDataList {
-			filterData:=newFilterData()
-			filterData.version=utils.ByteToInt64(chunkData.timestamp)
-			c:=compress.NewBXORChunk(chunkData.chunk)
-			it:=c.Iterator(nil)
+		filterDataList := make([]*filterData, 0)
+		data.precision = chunkDataList[0].precision
+		data.datatype = chunkDataList[0].metricType
+		data.maxValue = chunkDataList[0].maxValue
+		data.minValue = chunkDataList[0].minValue
+		for _, chunkData := range chunkDataList {
+			filterData := newFilterData()
+			filterData.version = utils.ByteToInt64(chunkData.timestamp)
+			c := compress.NewBXORChunk(chunkData.chunk)
+			it := c.Iterator(nil)
 			for it.Next() {
-				tt,vv:=it.At()
+				tt, vv := it.At()
 				if tt >= startTime && tt <= endTime {
-					 bv:=utils.Float64ToByte(vv)
-					 if bytes.Compare(bv,data.minValue) <= 0 {
-					 	data.minValue=bv
-					 }
-					 if bytes.Compare(bv,data.maxValue) >= 0 {
-					 	data.maxValue=bv
-					 }
-					 filterData.kv[tt]=bv
+					bv := utils.Float64ToByte(vv)
+					if bytes.Compare(bv, data.minValue) <= 0 {
+						data.minValue = bv
+					}
+					if bytes.Compare(bv, data.maxValue) >= 0 {
+						data.maxValue = bv
+					}
+					filterData.kv[tt] = bv
 				}
 			}
-			filterDataList=append(filterDataList,filterData)
+			filterDataList = append(filterDataList, filterData)
 		}
 		if len(filterDataList) > 0 {
-			kv:=make(map[int64][]byte,0)
-			for _,filterData:=range filterDataList {
-				 if filterData.kv !=nil && filterData.version > 0 {
-					 kv=mergeMap(filterData.kv,kv)
-				 }
+			kv := make(map[int64][]byte, 0)
+			for _, filterData := range filterDataList {
+				if filterData.kv != nil && filterData.version > 0 {
+					kv = mergeMap(filterData.kv, kv)
+				}
 			}
-			data.kv=kv
-			data.version=filterDataList[len(filterDataList)-1].version
+			data.kv = kv
+			data.version = filterDataList[len(filterDataList)-1].version
 			return data
 		}
 	}
 	return data
 }
 
-
-func (s *kv) filterDataList(value *point.Metric,filterDataList filterDataList) {
+func (s *kv) filterDataList(value *point.Metric, filterDataList filterDataList) {
 	if len(filterDataList) > 0 {
 		sort.Sort(filterDataList)
-		for _,filterData:=range filterDataList {
+		for _, filterData := range filterDataList {
 			if len(filterData.kv) > 0 && filterData.version > 0 {
-				value.Metric=mergeMap(filterData.kv,value.Metric)
-				value.MetricType=filterData.datatype
+				value.Metric = mergeMap(filterData.kv, value.Metric)
+				value.MetricType = filterData.datatype
 			}
 		}
 	}
 }
 
-
-func (s *kv) readData(dataBase,tableName,tagKv,fieldKey string,startTime,endTime int64) [][]byte {
+func (s *kv) readData(dataBase, tableName, tagKv, fieldKey string, startTime, endTime int64) [][]byte {
 	sTime := strconv.FormatInt(startTime, 10)
 	eTime := strconv.FormatInt(endTime, 10)
-	tableFileList:=s.getTableFile(dataBase,tableName,sTime,eTime)
-	dataSet:=make([][]byte,0)
+	tableFileList := s.getTableFile(dataBase, tableName, sTime, eTime)
+	dataSet := make([][]byte, 0)
 	var wg sync.WaitGroup
 	if tableFileList != nil {
-		for k,_:=range tableFileList {
-			tableFile:=k
+		for k, _ := range tableFileList {
+			tableFile := k
 			wg.Add(1)
 			go func(wg *sync.WaitGroup) {
-				metric:=&point.Metric {
-					Metric:               make(map[int64][]byte,0),
-					MetricType:           0,
+				metric := &point.Metric{
+					Metric:     make(map[int64][]byte, 0),
+					MetricType: 0,
 				}
 				if s.isCompressed == true {
-					chunkDataGroup,db:=readKv(tableFile,tagKv,fieldKey,startTime,endTime)
+					chunkDataGroup, db := readKv(tableFile, tagKv, fieldKey, startTime, endTime)
 					defer db.Close()
-					if chunkDataGroup !=nil {
+					if chunkDataGroup != nil {
 						var wg sync.WaitGroup
 						var dataList filterDataList
-						for _,chunkList:=range chunkDataGroup {
+						for _, chunkList := range chunkDataGroup {
 							wg.Add(1)
-							go func(chunkList ChunkDataList,wg *sync.WaitGroup) {
-								data:=s.filterChunkDataList(chunkList,startTime,endTime)
-								dataList=append(dataList,data)
+							go func(chunkList ChunkDataList, wg *sync.WaitGroup) {
+								data := s.filterChunkDataList(chunkList, startTime, endTime)
+								dataList = append(dataList, data)
 								wg.Done()
-							}(chunkList,&wg)
+							}(chunkList, &wg)
 							wg.Wait()
 						}
 						if len(dataList) > 0 {
-							s.filterDataList(metric,dataList)
+							s.filterDataList(metric, dataList)
 						}
 					}
 				}
-				buf,e:=proto.Marshal(metric)
-				if e !=nil {
+				buf, e := proto.Marshal(metric)
+				if e != nil {
 					log.Println(e.Error())
 				}
-				dst:=make([]byte,len(buf))
-				copy(dst,buf)
-				dataSet= append(dataSet, dst)
+				dst := make([]byte, len(buf))
+				copy(dst, buf)
+				dataSet = append(dataSet, dst)
 				wg.Done()
 			}(&wg)
 			wg.Wait()
@@ -786,26 +760,25 @@ func (s *kv) readData(dataBase,tableName,tagKv,fieldKey string,startTime,endTime
 	return dataSet
 }
 
-
 var uncompressTotal int
 
-func (s *kv) compressTask(tagKv string,tableFileDataList map[string][]*metricData) map[string][]*compressPoints {
-	tableFileChunkList:=make(map[string][]*compressPoints)
+func (s *kv) compressTask(tagKv string, tableFileDataList map[string][]*metricData) map[string][]*compressPoints {
+	tableFileChunkList := make(map[string][]*compressPoints)
 	if tableFileDataList != nil {
-		for tableFile,dataList:=range tableFileDataList {
+		for tableFile, dataList := range tableFileDataList {
 			/*s.mutex.Lock()
 			uncompressTotal+= dataList[0].count
 			fmt.Printf("uncompress data count: %d\n",uncompressTotal)
 			s.mutex.Unlock()*/
-			chunkList:=make([]*compressPoints,0)
+			chunkList := make([]*compressPoints, 0)
 			if len(dataList) > 0 {
 				var wg sync.WaitGroup
-				for _,data:=range dataList {
+				for _, data := range dataList {
 					wg.Add(1)
-					go func(data *metricData,wg *sync.WaitGroup) {
+					go func(data *metricData, wg *sync.WaitGroup) {
 						s.mutex.Lock()
-						chunk:=s.compressData(data)
-						chunkList=append(chunkList,chunk)
+						chunk := s.compressData(data)
+						chunkList = append(chunkList, chunk)
 						/*_,ok:=tableFileChunkList[tableFile]
 						if ok {
 							tableFileChunkList[tableFile]=append(tableFileChunkList[tableFile],chunk)
@@ -816,15 +789,15 @@ func (s *kv) compressTask(tagKv string,tableFileDataList map[string][]*metricDat
 						}*/
 						s.mutex.Unlock()
 						wg.Done()
-					}(data,&wg)
+					}(data, &wg)
 				}
 				wg.Wait()
 			}
-			s.mutex.Lock()
+			/*s.mutex.Lock()
 			count += 1
 			total += chunkList[0].count
-			fmt.Printf("request count: %d and chunk count: %d and total count: %d \n", count, chunkList[0].count,total)
-			s.mutex.Unlock()
+			fmt.Printf("request count: %d and chunk count: %d and total count: %d \n", count, chunkList[0].count, total)
+			s.mutex.Unlock()*/
 			e := writeKv(tableFile, tagKv, chunkList)
 			if e != nil {
 				log.Println("write kv storage failed !", e)
@@ -834,7 +807,6 @@ func (s *kv) compressTask(tagKv string,tableFileDataList map[string][]*metricDat
 	return tableFileChunkList
 }
 
-
 func (s *kv) compressData(metricData *metricData) *compressPoints {
 
 	var timeChunk []byte
@@ -842,143 +814,142 @@ func (s *kv) compressData(metricData *metricData) *compressPoints {
 	var minValue []byte
 	var maxValue []byte
 	/*
-	to do code improve
+		to do code improve
 	*/
 	switch metricData.metricType {
 	case utils.Bool:
-		enc1:=compress.NewBooleanEncoder(metricData.count)
-		enc2:=compress.NewTimeEncoder(metricData.count)
+		enc1 := compress.NewBooleanEncoder(metricData.count)
+		enc2 := compress.NewTimeEncoder(metricData.count)
 		if len(metricData.points) > 0 {
-			minValue=metricData.points[0].V
-			maxValue=metricData.points[0].V
-			for _,p:=range metricData.points {
-				if bytes.Compare(p.V,[]byte{0}) == 0 {
+			minValue = metricData.points[0].V
+			maxValue = metricData.points[0].V
+			for _, p := range metricData.points {
+				if bytes.Compare(p.V, []byte{0}) == 0 {
 					enc1.Write(false)
-				}else {
+				} else {
 					enc1.Write(true)
 				}
 				enc2.Write(p.T)
-				if bytes.Compare(p.V,minValue) < 0 {
-					   minValue=p.V
+				if bytes.Compare(p.V, minValue) < 0 {
+					minValue = p.V
 				}
-				if bytes.Compare(p.V,maxValue) >= 0 {
-					   maxValue=p.V
+				if bytes.Compare(p.V, maxValue) >= 0 {
+					maxValue = p.V
 				}
 			}
 		}
-		timeChunk,_= enc2.Bytes()
-		valueChunk,_= enc1.Bytes()
+		timeChunk, _ = enc2.Bytes()
+		valueChunk, _ = enc1.Bytes()
 		break
 	case utils.Long:
-		enc1:=compress.NewIntegerEncoder(metricData.count)
-		enc2:=compress.NewTimeEncoder(metricData.count)
+		enc1 := compress.NewIntegerEncoder(metricData.count)
+		enc2 := compress.NewTimeEncoder(metricData.count)
 		if len(metricData.points) > 0 {
-			minValue=metricData.points[0].V
-			maxValue=metricData.points[0].V
-			for _,p:=range metricData.points {
-				enc1.Write(utils.TransByteToData(utils.Long,p.V).(int64))
+			minValue = metricData.points[0].V
+			maxValue = metricData.points[0].V
+			for _, p := range metricData.points {
+				enc1.Write(utils.TransByteToData(utils.Long, p.V).(int64))
 				enc2.Write(p.T)
-				if bytes.Compare(p.V,minValue) < 0 {
-					minValue=p.V
+				if bytes.Compare(p.V, minValue) < 0 {
+					minValue = p.V
 				}
-				if bytes.Compare(p.V,maxValue) >= 0 {
-					maxValue=p.V
+				if bytes.Compare(p.V, maxValue) >= 0 {
+					maxValue = p.V
 				}
 			}
 		}
-		timeChunk,_= enc2.Bytes()
-		valueChunk,_= enc1.Bytes()
+		timeChunk, _ = enc2.Bytes()
+		valueChunk, _ = enc1.Bytes()
 		break
 	case utils.Double:
-		enc1:=compress.NewFloatEncoder()
-		enc2:=compress.NewTimeEncoder(metricData.count)
+		enc1 := compress.NewFloatEncoder()
+		enc2 := compress.NewTimeEncoder(metricData.count)
 		if len(metricData.points) > 0 {
-			minValue=metricData.points[0].V
-			maxValue=metricData.points[0].V
-			for _,p:=range metricData.points {
-				enc1.Write(utils.TransByteToData(utils.Double,p.V).(float64))
+			minValue = metricData.points[0].V
+			maxValue = metricData.points[0].V
+			for _, p := range metricData.points {
+				enc1.Write(utils.TransByteToData(utils.Double, p.V).(float64))
 				enc2.Write(p.T)
-				if bytes.Compare(p.V,minValue) < 0 {
-					minValue=p.V
+				if bytes.Compare(p.V, minValue) < 0 {
+					minValue = p.V
 				}
-				if bytes.Compare(p.V,maxValue) >= 0 {
-					maxValue=p.V
+				if bytes.Compare(p.V, maxValue) >= 0 {
+					maxValue = p.V
 				}
 			}
 		}
-		timeChunk,_= enc2.Bytes()
-		valueChunk,_= enc1.Bytes()
+		timeChunk, _ = enc2.Bytes()
+		valueChunk, _ = enc1.Bytes()
 		break
 	case utils.Int:
-		enc1:=compress.NewIntegerEncoder(metricData.count)
-		enc2:=compress.NewTimeEncoder(metricData.count)
+		enc1 := compress.NewIntegerEncoder(metricData.count)
+		enc2 := compress.NewTimeEncoder(metricData.count)
 		if len(metricData.points) > 0 {
-			minValue=metricData.points[0].V
-			maxValue=metricData.points[0].V
-			for _,p:=range metricData.points {
-				b:=make([]byte,4)
-				b=append(b,p.V...)
-				enc1.Write(utils.TransByteToData(utils.Long,b).(int64))
+			minValue = metricData.points[0].V
+			maxValue = metricData.points[0].V
+			for _, p := range metricData.points {
+				b := make([]byte, 4)
+				b = append(b, p.V...)
+				enc1.Write(utils.TransByteToData(utils.Long, b).(int64))
 				enc2.Write(p.T)
-				if bytes.Compare(p.V,minValue) < 0 {
-					minValue=p.V
+				if bytes.Compare(p.V, minValue) < 0 {
+					minValue = p.V
 				}
-				if bytes.Compare(p.V,maxValue) >= 0 {
-					maxValue=p.V
+				if bytes.Compare(p.V, maxValue) >= 0 {
+					maxValue = p.V
 				}
 			}
 		}
-		timeChunk,_= enc2.Bytes()
-		valueChunk,_= enc1.Bytes()
+		timeChunk, _ = enc2.Bytes()
+		valueChunk, _ = enc1.Bytes()
 		break
 	case utils.Float:
-		enc1:=compress.NewFloatEncoder()
-		enc2:=compress.NewTimeEncoder(metricData.count)
+		enc1 := compress.NewFloatEncoder()
+		enc2 := compress.NewTimeEncoder(metricData.count)
 		if len(metricData.points) > 0 {
-			minValue=metricData.points[0].V
-			maxValue=metricData.points[0].V
-			for _,p:=range metricData.points {
-				enc1.Write(utils.TransByteToData(utils.Double,p.V).(float64))
+			minValue = metricData.points[0].V
+			maxValue = metricData.points[0].V
+			for _, p := range metricData.points {
+				enc1.Write(utils.TransByteToData(utils.Double, p.V).(float64))
 				enc2.Write(p.T)
-				if bytes.Compare(p.V,minValue) < 0 {
-					minValue=p.V
+				if bytes.Compare(p.V, minValue) < 0 {
+					minValue = p.V
 				}
-				if bytes.Compare(p.V,maxValue) >= 0 {
-					maxValue=p.V
+				if bytes.Compare(p.V, maxValue) >= 0 {
+					maxValue = p.V
 				}
 			}
 		}
-		timeChunk,_= enc2.Bytes()
-		valueChunk,_= enc1.Bytes()
+		timeChunk, _ = enc2.Bytes()
+		valueChunk, _ = enc1.Bytes()
 		break
 	}
-	return &compressPoints {
-		maxTime:  metricData.maxTime,
-		minTime:  metricData.minTime,
-		timeChunk: timeChunk,
+	return &compressPoints{
+		maxTime:    metricData.maxTime,
+		minTime:    metricData.minTime,
+		timeChunk:  timeChunk,
 		valueChunk: valueChunk,
-		fieldKey: metricData.metric,
-		count: metricData.count,
+		fieldKey:   metricData.metric,
+		count:      metricData.count,
 		metricType: metricData.metricType,
-		precision: metricData.precision,
-		minValue:minValue,
-		maxValue:maxValue,
+		precision:  metricData.precision,
+		minValue:   minValue,
+		maxValue:   maxValue,
 	}
 }
 
-
-func search (points []utils.Point,t int64) int {
-	left:=0
-	right:= len(points) - 1
-	mid:= (left + right) / 2
+func search(points []utils.Point, t int64) int {
+	left := 0
+	right := len(points) - 1
+	mid := (left + right) / 2
 	for left < right {
 		if points[mid].T < t {
-			left=mid+1
-			mid=(left+right) / 2
+			left = mid + 1
+			mid = (left + right) / 2
 		}
 		if points[mid].T > t {
-			right=mid-1
-			mid=(left+right) / 2
+			right = mid - 1
+			mid = (left + right) / 2
 		}
 		if points[mid].T == t {
 			return mid
@@ -987,78 +958,75 @@ func search (points []utils.Point,t int64) int {
 	return left
 }
 
-
 type timeRange struct {
 	startTime int64
-	endTime int64
+	endTime   int64
 }
 
-
-func newTimeRange(startTime,endTime int64) timeRange {
-	return timeRange {
+func newTimeRange(startTime, endTime int64) timeRange {
+	return timeRange{
 		startTime: startTime,
 		endTime:   endTime,
 	}
 }
 
+func (s *kv) spiltTimeRange(minTime, maxTime int64) []timeRange {
 
-func (s *kv) spiltTimeRange(minTime,maxTime int64) []timeRange {
+	timeRangeList := make([]timeRange, 0)
 
-	timeRangeList:=make([]timeRange,0)
+	m := (maxTime - minTime) / s.duration.Nanoseconds()
+	n := (maxTime - minTime) % s.duration.Nanoseconds()
 
-	m:= (maxTime - minTime) / s.duration.Nanoseconds()
-	n:= (maxTime - minTime) % s.duration.Nanoseconds()
-
-	if m ==0 {
-		timeRange:=timeRange {
+	if m == 0 {
+		timeRange := timeRange{
 			startTime: 0,
 			endTime:   0,
 		}
-		timeRange.endTime=maxTime
-		timeRange.startTime=minTime
-		timeRangeList=append(timeRangeList,timeRange)
+		timeRange.endTime = maxTime
+		timeRange.startTime = minTime
+		timeRangeList = append(timeRangeList, timeRange)
 		return timeRangeList
 	}
 
 	if m > 0 && n == 0 {
-	   k:=int(m)
-	   tempMaxTime:=getEndTime(minTime,s.duration)
-	   tempMinTime:=minTime
-	   for i:=0; i< k ; i++ {
-		   timeRange:=timeRange{
-			   startTime: 0,
-			   endTime:   0,
-		   }
-		   timeRange.endTime=tempMaxTime
-		   timeRange.startTime=tempMinTime
-		   tempMinTime=tempMaxTime
-		   tempMaxTime=getEndTime(tempMinTime,s.duration)
-		   timeRangeList=append(timeRangeList,timeRange)
-	   }
-	   return timeRangeList
-	}
-
-	if m > 0 && n != 0 {
-		k:=int(m)
-		tempMaxTime:=getEndTime(minTime,s.duration)
-		tempMinTime:=minTime
-
-		for i:=0; i< k ; i++ {
-			timeRange:=timeRange{
+		k := int(m)
+		tempMaxTime := getEndTime(minTime, s.duration)
+		tempMinTime := minTime
+		for i := 0; i < k; i++ {
+			timeRange := timeRange{
 				startTime: 0,
 				endTime:   0,
 			}
-			timeRange.endTime=tempMaxTime
-			timeRange.startTime=tempMinTime
-			tempMinTime=tempMaxTime
-			tempMaxTime=getEndTime(tempMinTime,s.duration)
-			timeRangeList=append(timeRangeList,timeRange)
+			timeRange.endTime = tempMaxTime
+			timeRange.startTime = tempMinTime
+			tempMinTime = tempMaxTime
+			tempMaxTime = getEndTime(tempMinTime, s.duration)
+			timeRangeList = append(timeRangeList, timeRange)
 		}
-		timeRange:=timeRange{
+		return timeRangeList
+	}
+
+	if m > 0 && n != 0 {
+		k := int(m)
+		tempMaxTime := getEndTime(minTime, s.duration)
+		tempMinTime := minTime
+
+		for i := 0; i < k; i++ {
+			timeRange := timeRange{
+				startTime: 0,
+				endTime:   0,
+			}
+			timeRange.endTime = tempMaxTime
+			timeRange.startTime = tempMinTime
+			tempMinTime = tempMaxTime
+			tempMaxTime = getEndTime(tempMinTime, s.duration)
+			timeRangeList = append(timeRangeList, timeRange)
+		}
+		timeRange := timeRange{
 			startTime: tempMaxTime,
 			endTime:   maxTime,
 		}
-		timeRangeList=append(timeRangeList,timeRange)
+		timeRangeList = append(timeRangeList, timeRange)
 		return timeRangeList
 	}
 	return timeRangeList
@@ -1067,89 +1035,88 @@ func (s *kv) spiltTimeRange(minTime,maxTime int64) []timeRange {
 // 这部分可以进行性能优化，负责将本地的数据文件的时间范围信息，注册到元数据，而不必每次都进行数据文件的扫描
 // 同时整个代码逻辑也需要优化
 
-func (s *kv) scanDataDir(dataBase,tableName string,minTime,maxTime int64) map[string]timeRange {
+func (s *kv) scanDataDir(dataBase, tableName string, minTime, maxTime int64) map[string]timeRange {
 	//按照配置的时间范围，对数据进行时间切片，将数据分割
-	timeRangeList:=s.spiltTimeRange(minTime,maxTime)
-	tableFileMap:=make(map[string]timeRange,0)
+	timeRangeList := s.spiltTimeRange(minTime, maxTime)
+	tableFileMap := make(map[string]timeRange, 0)
 	if timeRangeList != nil && len(timeRangeList) > 0 {
-		for _,timeRange:= range timeRangeList {
+		for _, timeRange := range timeRangeList {
 			var tableFile string
-			startTime:= strconv.FormatInt(timeRange.startTime,10)
-			endTime:= strconv.FormatInt(timeRange.endTime,10)
-			dataBaseDir,exist:=s.dataBaseDirIsExist(dataBase)
+			startTime := strconv.FormatInt(timeRange.startTime, 10)
+			endTime := strconv.FormatInt(timeRange.endTime, 10)
+			dataBaseDir, exist := s.dataBaseDirIsExist(dataBase)
 			if exist == true {
-				fileList,_:=ioutil.ReadDir(dataBaseDir)
+				fileList, _ := ioutil.ReadDir(dataBaseDir)
 				if len(fileList) > 0 {
-				   for _,file:=range fileList {
-				   	   tableFileMap=s.setTableFile(dataBase,tableName,timeRange,file.Name())
-				   }
-				   if len(tableFileMap) == 0 {
-					   for _,file:=range fileList {
-						   tableInfo := strings.Split(file.Name(), "-")
-						   st := tableInfo[1]
-						   et := strings.Split(tableInfo[2], ".")[0]
-						   ok,f:=s.isLeftPart(startTime, st, endTime, dataBaseDir, tableName)
-						   if ok {
-							   tableFileMap=s.setTableFile(dataBase, tableName,timeRange,f)
-						   }
-						   ok,f=s.isRightPart(startTime, endTime, et, dataBaseDir, tableName)
-						   if ok {
-							   tableFileMap=s.setTableFile(dataBase, tableName, timeRange,f)
-						   }
-					   }
-				   }
+					for _, file := range fileList {
+						tableFileMap = s.setTableFile(dataBase, tableName, timeRange, file.Name())
+					}
+					if len(tableFileMap) == 0 {
+						for _, file := range fileList {
+							tableInfo := strings.Split(file.Name(), "-")
+							st := tableInfo[1]
+							et := strings.Split(tableInfo[2], ".")[0]
+							ok, f := s.isLeftPart(startTime, st, endTime, dataBaseDir, tableName)
+							if ok {
+								tableFileMap = s.setTableFile(dataBase, tableName, timeRange, f)
+							}
+							ok, f = s.isRightPart(startTime, endTime, et, dataBaseDir, tableName)
+							if ok {
+								tableFileMap = s.setTableFile(dataBase, tableName, timeRange, f)
+							}
+						}
+					}
 				} else {
 					if (timeRange.endTime - timeRange.startTime) < s.duration.Nanoseconds() {
-						tableFile=dataBaseDir+sep+tableName+"-"+startTime+"-"+ strconv.FormatInt(timeRange.startTime+s.duration.Nanoseconds(),10)+".db"
-						tableFileMap[tableFile]=newTimeRange(timeRange.startTime,timeRange.startTime+s.duration.Nanoseconds())
+						tableFile = dataBaseDir + sep + tableName + "-" + startTime + "-" + strconv.FormatInt(timeRange.startTime+s.duration.Nanoseconds(), 10) + ".db"
+						tableFileMap[tableFile] = newTimeRange(timeRange.startTime, timeRange.startTime+s.duration.Nanoseconds())
 					}
 					if (timeRange.endTime - timeRange.startTime) == s.duration.Nanoseconds() {
-						tableFile=dataBaseDir+sep+tableName+"-"+startTime+"-"+ strconv.FormatInt(timeRange.startTime+s.duration.Nanoseconds(),10)+".db"
-						tableFileMap[tableFile]=newTimeRange(timeRange.startTime,timeRange.startTime+s.duration.Nanoseconds())
-						tableFile=dataBaseDir+sep+tableName+"-"+endTime+"-"+ strconv.FormatInt(timeRange.endTime+s.duration.Nanoseconds(),10)+".db"
-						tableFileMap[tableFile]=newTimeRange(timeRange.endTime,timeRange.endTime)
+						tableFile = dataBaseDir + sep + tableName + "-" + startTime + "-" + strconv.FormatInt(timeRange.startTime+s.duration.Nanoseconds(), 10) + ".db"
+						tableFileMap[tableFile] = newTimeRange(timeRange.startTime, timeRange.startTime+s.duration.Nanoseconds())
+						tableFile = dataBaseDir + sep + tableName + "-" + endTime + "-" + strconv.FormatInt(timeRange.endTime+s.duration.Nanoseconds(), 10) + ".db"
+						tableFileMap[tableFile] = newTimeRange(timeRange.endTime, timeRange.endTime)
 					}
 				}
 			} else {
 				rand.Seed(time.Now().UnixNano())
 				n := rand.Intn(len(s.dataDir))
-				e:=os.MkdirAll(s.dataDir[n]+dataBase,os.ModePerm)
-				if e !=nil {
-					log.Println("failed create data dir",s.dataDir[n]+dataBase,e)
+				e := os.MkdirAll(s.dataDir[n]+dataBase, os.ModePerm)
+				if e != nil {
+					log.Println("failed create data dir", s.dataDir[n]+dataBase, e)
 				}
 				if (timeRange.endTime - timeRange.startTime) < s.duration.Nanoseconds() {
-					tableFile=s.dataDir[n]+dataBase+sep+tableName+"-"+startTime+"-"+ strconv.FormatInt(timeRange.startTime+s.duration.Nanoseconds(),10)+".db"
-					tableFileMap[tableFile]=newTimeRange(timeRange.startTime,timeRange.startTime+s.duration.Nanoseconds())
+					tableFile = s.dataDir[n] + dataBase + sep + tableName + "-" + startTime + "-" + strconv.FormatInt(timeRange.startTime+s.duration.Nanoseconds(), 10) + ".db"
+					tableFileMap[tableFile] = newTimeRange(timeRange.startTime, timeRange.startTime+s.duration.Nanoseconds())
 				}
 				if (timeRange.endTime - timeRange.startTime) == s.duration.Nanoseconds() {
-					tableFile=s.dataDir[n]+dataBase+sep+tableName+"-"+startTime+"-"+ strconv.FormatInt(timeRange.startTime+s.duration.Nanoseconds(),10)+".db"
-					tableFileMap[tableFile]=newTimeRange(timeRange.startTime,timeRange.startTime+s.duration.Nanoseconds())
-					tableFile=s.dataDir[n]+dataBase+sep+tableName+"-"+endTime+"-"+ strconv.FormatInt(timeRange.endTime+s.duration.Nanoseconds(),10)+".db"
-					tableFileMap[tableFile]=newTimeRange(timeRange.endTime,timeRange.endTime)
+					tableFile = s.dataDir[n] + dataBase + sep + tableName + "-" + startTime + "-" + strconv.FormatInt(timeRange.startTime+s.duration.Nanoseconds(), 10) + ".db"
+					tableFileMap[tableFile] = newTimeRange(timeRange.startTime, timeRange.startTime+s.duration.Nanoseconds())
+					tableFile = s.dataDir[n] + dataBase + sep + tableName + "-" + endTime + "-" + strconv.FormatInt(timeRange.endTime+s.duration.Nanoseconds(), 10) + ".db"
+					tableFileMap[tableFile] = newTimeRange(timeRange.endTime, timeRange.endTime)
 				}
 			}
 		}
 	}
 
-    return tableFileMap
+	return tableFileMap
 }
 
-
-func (s *kv) dataBaseDirIsExist(dataBase string) (string,bool) {
-	for _,dir:= range s.dataDir {
-		if utils.CheckFileIsExist(dir+dataBase) {
-			return dir+dataBase,true
+func (s *kv) dataBaseDirIsExist(dataBase string) (string, bool) {
+	for _, dir := range s.dataDir {
+		if utils.CheckFileIsExist(dir + dataBase) {
+			return dir + dataBase, true
 		}
 	}
-	return "",false
+	return "", false
 }
 
-func (s *kv) setTableFile(dataBase,tableName string,tr timeRange,fileName string) map[string]timeRange {
+func (s *kv) setTableFile(dataBase, tableName string, tr timeRange, fileName string) map[string]timeRange {
 	var tableFile string
-	tableFileMap:=make(map[string]timeRange,0)
-	startTime:= strconv.FormatInt(tr.startTime,10)
-	endTime:= strconv.FormatInt(tr.endTime,10)
-	dataBaseDir,_:=s.dataBaseDirIsExist(dataBase)
+	tableFileMap := make(map[string]timeRange, 0)
+	startTime := strconv.FormatInt(tr.startTime, 10)
+	endTime := strconv.FormatInt(tr.endTime, 10)
+	dataBaseDir, _ := s.dataBaseDirIsExist(dataBase)
 	if !strings.HasSuffix(fileName, "lock") {
 		tableInfo := strings.Split(fileName, "-")
 		tn := tableInfo[0]
@@ -1182,14 +1149,14 @@ func (s *kv) setTableFile(dataBase,tableName string,tr timeRange,fileName string
 			}
 		} else {
 			if (tr.endTime - tr.startTime) < s.duration.Nanoseconds() {
-				tableFile=dataBaseDir+sep+tableName+"-"+startTime+"-"+ strconv.FormatInt(tr.startTime+s.duration.Nanoseconds(),10)+".db"
-				tableFileMap[tableFile]=newTimeRange(tr.startTime,tr.startTime+s.duration.Nanoseconds())
+				tableFile = dataBaseDir + sep + tableName + "-" + startTime + "-" + strconv.FormatInt(tr.startTime+s.duration.Nanoseconds(), 10) + ".db"
+				tableFileMap[tableFile] = newTimeRange(tr.startTime, tr.startTime+s.duration.Nanoseconds())
 			}
 			if (tr.endTime - tr.startTime) == s.duration.Nanoseconds() {
-				tableFile=dataBaseDir+sep+tableName+"-"+startTime+"-"+ strconv.FormatInt(tr.startTime+s.duration.Nanoseconds(),10)+".db"
-				tableFileMap[tableFile]=newTimeRange(tr.startTime,tr.startTime+s.duration.Nanoseconds())
-				tableFile=dataBaseDir+sep+tableName+"-"+endTime+"-"+ strconv.FormatInt(tr.endTime+s.duration.Nanoseconds(),10)+".db"
-				tableFileMap[tableFile]=newTimeRange(tr.endTime,tr.endTime)
+				tableFile = dataBaseDir + sep + tableName + "-" + startTime + "-" + strconv.FormatInt(tr.startTime+s.duration.Nanoseconds(), 10) + ".db"
+				tableFileMap[tableFile] = newTimeRange(tr.startTime, tr.startTime+s.duration.Nanoseconds())
+				tableFile = dataBaseDir + sep + tableName + "-" + endTime + "-" + strconv.FormatInt(tr.endTime+s.duration.Nanoseconds(), 10) + ".db"
+				tableFileMap[tableFile] = newTimeRange(tr.endTime, tr.endTime)
 			}
 			return tableFileMap
 		}
@@ -1197,101 +1164,95 @@ func (s *kv) setTableFile(dataBase,tableName string,tr timeRange,fileName string
 	return tableFileMap
 }
 
-
-func (s *kv) isLeftPart(startTime,st,endTime,dataBaseDir,tableName string ) (bool,string) {
+func (s *kv) isLeftPart(startTime, st, endTime, dataBaseDir, tableName string) (bool, string) {
 	//数据落在st-et的左半部分
 	var fileName string
-	if strings.Compare(startTime,st) < 0 && strings.Compare(endTime,st) <0 {
-		startTime,_:=strconv.ParseInt(st, 10, 64)
-		fileName=tableName +"-"+strconv.FormatInt(startTime - s.duration.Nanoseconds(),10)+"-"+st+".db"
-		tableFile:=dataBaseDir+ sep + fileName
-		ok:=utils.CheckFileIsExist(tableFile)
+	if strings.Compare(startTime, st) < 0 && strings.Compare(endTime, st) < 0 {
+		startTime, _ := strconv.ParseInt(st, 10, 64)
+		fileName = tableName + "-" + strconv.FormatInt(startTime-s.duration.Nanoseconds(), 10) + "-" + st + ".db"
+		tableFile := dataBaseDir + sep + fileName
+		ok := utils.CheckFileIsExist(tableFile)
 		if !ok {
-			db:=openDB(tableFile)
+			db := openDB(tableFile)
 			db.Close()
 		}
-		return true,fileName
+		return true, fileName
 	}
-	return false,fileName
+	return false, fileName
 }
 
-
-
-
-func (s *kv) isRightPart(startTime,endTime,et,dataBaseDir,tableName string ) (bool,string) {
+func (s *kv) isRightPart(startTime, endTime, et, dataBaseDir, tableName string) (bool, string) {
 	//数据落在st-et的右半部分
 	var fileName string
-	if strings.Compare(startTime,et) > 0 && strings.Compare(endTime,et) > 0 {
-		endTime,_:=strconv.ParseInt(et, 10, 64)
-		fileName=tableName+"-"+et+"-"+strconv.FormatInt(endTime + s.duration.Nanoseconds(),10)+".db"
-		tableFile:=dataBaseDir+ sep + fileName
-		ok:=utils.CheckFileIsExist(tableFile)
+	if strings.Compare(startTime, et) > 0 && strings.Compare(endTime, et) > 0 {
+		endTime, _ := strconv.ParseInt(et, 10, 64)
+		fileName = tableName + "-" + et + "-" + strconv.FormatInt(endTime+s.duration.Nanoseconds(), 10) + ".db"
+		tableFile := dataBaseDir + sep + fileName
+		ok := utils.CheckFileIsExist(tableFile)
 		if !ok {
-			db:=openDB(tableFile)
+			db := openDB(tableFile)
 			db.Close()
 		}
-		return true,fileName
+		return true, fileName
 	}
-	return false,fileName
+	return false, fileName
 }
 
-
-
-func (s *kv) getTableFile(dataBase,tableName,startTime,endTime string) map[string]bool {
+func (s *kv) getTableFile(dataBase, tableName, startTime, endTime string) map[string]bool {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	var tableFile string
-	tableFileList:=make(map[string]bool,0)
-	dataBaseDir,exist:=s.dataBaseDirIsExist(dataBase)
+	tableFileList := make(map[string]bool, 0)
+	dataBaseDir, exist := s.dataBaseDirIsExist(dataBase)
 	if exist == true {
-		fileList,err:=ioutil.ReadDir(dataBaseDir)
-		if err !=nil {
+		fileList, err := ioutil.ReadDir(dataBaseDir)
+		if err != nil {
 			log.Println(err)
 		}
 		if len(fileList) == 0 {
 			return nil
 		}
-		for _,file:=range fileList {
-			if !strings.HasSuffix(file.Name(),"lock") {
-				tableInfo:=strings.Split(file.Name(),"-")
-				tn:=tableInfo[0]
-				st:=tableInfo[1]
-				et:=strings.Split(tableInfo[2],".")[0]
-				if strings.Compare(tn,tableName) == 0 {
-					if strings.Compare(startTime,st) >= 0 && strings.Compare(startTime,et) < 0 && strings.Compare(endTime,et) <= 0 {
-						tableFile=dataBaseDir+sep+file.Name()
-						tableFileList[tableFile]=true
+		for _, file := range fileList {
+			if !strings.HasSuffix(file.Name(), "lock") {
+				tableInfo := strings.Split(file.Name(), "-")
+				tn := tableInfo[0]
+				st := tableInfo[1]
+				et := strings.Split(tableInfo[2], ".")[0]
+				if strings.Compare(tn, tableName) == 0 {
+					if strings.Compare(startTime, st) >= 0 && strings.Compare(startTime, et) < 0 && strings.Compare(endTime, et) <= 0 {
+						tableFile = dataBaseDir + sep + file.Name()
+						tableFileList[tableFile] = true
 					}
-					if strings.Compare(startTime,st) < 0 && strings.Compare(endTime,st) >0 && strings.Compare(endTime,et) < 0 {
-						tableFileList1:=s.getTableFile(dataBase,tableName,startTime,st)
-						tableFileList2:=s.getTableFile(dataBase,tableName,st,endTime)
-						for tableFileK1,tableFileV1:=range tableFileList1 {
-							tableFileList[tableFileK1]=tableFileV1
+					if strings.Compare(startTime, st) < 0 && strings.Compare(endTime, st) > 0 && strings.Compare(endTime, et) < 0 {
+						tableFileList1 := s.getTableFile(dataBase, tableName, startTime, st)
+						tableFileList2 := s.getTableFile(dataBase, tableName, st, endTime)
+						for tableFileK1, tableFileV1 := range tableFileList1 {
+							tableFileList[tableFileK1] = tableFileV1
 						}
-						for tableFileK2,tableFileV2:=range tableFileList2 {
-							tableFileList[tableFileK2]=tableFileV2
-						}
-					}
-					if strings.Compare(startTime,st) >= 0 &&  strings.Compare(startTime,et) < 0 && strings.Compare(endTime,et) > 0 {
-						tableFileList1:=s.getTableFile(dataBase,tableName,startTime,et)
-						tableFileList2:=s.getTableFile(dataBase,tableName,et,endTime)
-						for tableFileK1,tableFileV1:=range tableFileList1 {
-							tableFileList[tableFileK1]=tableFileV1
-						}
-						for tableFileK2,tableFileV2:=range tableFileList2 {
-							tableFileList[tableFileK2]=tableFileV2
+						for tableFileK2, tableFileV2 := range tableFileList2 {
+							tableFileList[tableFileK2] = tableFileV2
 						}
 					}
-					if strings.Compare(startTime,st) < 0 && strings.Compare(endTime,et) >= 0 {
-						tableFileList1:=s.getTableFile(dataBase,tableName,startTime,st)
-						tableFileList2:=s.getTableFile(dataBase,tableName,et,endTime)
-						tableFile=dataBaseDir+sep+file.Name()
-						tableFileList[tableFile]=true
-						for tableFileK1,tableFileV1:=range tableFileList1 {
-							tableFileList[tableFileK1]=tableFileV1
+					if strings.Compare(startTime, st) >= 0 && strings.Compare(startTime, et) < 0 && strings.Compare(endTime, et) > 0 {
+						tableFileList1 := s.getTableFile(dataBase, tableName, startTime, et)
+						tableFileList2 := s.getTableFile(dataBase, tableName, et, endTime)
+						for tableFileK1, tableFileV1 := range tableFileList1 {
+							tableFileList[tableFileK1] = tableFileV1
 						}
-						for tableFileK2,tableFileV2:=range tableFileList2 {
-							tableFileList[tableFileK2]=tableFileV2
+						for tableFileK2, tableFileV2 := range tableFileList2 {
+							tableFileList[tableFileK2] = tableFileV2
+						}
+					}
+					if strings.Compare(startTime, st) < 0 && strings.Compare(endTime, et) >= 0 {
+						tableFileList1 := s.getTableFile(dataBase, tableName, startTime, st)
+						tableFileList2 := s.getTableFile(dataBase, tableName, et, endTime)
+						tableFile = dataBaseDir + sep + file.Name()
+						tableFileList[tableFile] = true
+						for tableFileK1, tableFileV1 := range tableFileList1 {
+							tableFileList[tableFileK1] = tableFileV1
+						}
+						for tableFileK2, tableFileV2 := range tableFileList2 {
+							tableFileList[tableFileK2] = tableFileV2
 						}
 					}
 				}

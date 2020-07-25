@@ -16,12 +16,11 @@ import (
 
 type tcpClient struct {
 	serverAddr string
-	mu sync.RWMutex
+	mu         sync.RWMutex
 }
 
-
 func NewClient(addr string) *tcpClient {
-	return &tcpClient{serverAddr:addr}
+	return &tcpClient{serverAddr: addr}
 }
 
 type client struct {
@@ -29,11 +28,10 @@ type client struct {
 	r *bufio.Reader
 }
 
-
 func (tc *tcpClient) ExecuteWrite(writeList []*point.WritePoint) {
-	c:=newClient(tc.serverAddr)
-	for _,wp:=range writeList {
-		  tc.run(c,wp)
+	c := newClient(tc.serverAddr)
+	for _, wp := range writeList {
+		tc.run(c, wp)
 	}
 }
 
@@ -46,35 +44,33 @@ func newClient(server string) *client {
 	return &client{conn, request}
 }
 
-func(tc *tcpClient) run(c *client,wp *point.WritePoint) {
-	 c.writeRequest(wp)
-	 c.processWriteResponse(wp)
+func (tc *tcpClient) run(c *client, wp *point.WritePoint) {
+	c.writeRequest(wp)
+	c.processWriteResponse(wp)
 }
 
-
-func(c *client) writeRequest(wp *point.WritePoint) {
-	data,e:=proto.Marshal(wp)
-	if e !=nil {
+func (c *client) writeRequest(wp *point.WritePoint) {
+	data, e := proto.Marshal(wp)
+	if e != nil {
 		log.Println(e)
 	}
-	dLen:=len(data)
-	_,e=c.Write([]byte(fmt.Sprintf("S%d,%s",dLen,data)))
-	if e !=nil {
-		log.Println("client send write request failed !",e)
+	dLen := len(data)
+	_, e = c.Write([]byte(fmt.Sprintf("S%d,%s", dLen, data)))
+	if e != nil {
+		log.Println("client send write request failed !", e)
 	}
 }
 
-
 func (c *client) proxyWriteRequest(data []byte) {
-	dLen:=len(data)
-	_,e:=c.Write([]byte(fmt.Sprintf("S%d,%s",dLen,data)))
-	if e !=nil {
-		log.Println("proxy client send write request failed !",e)
+	dLen := len(data)
+	_, e := c.Write([]byte(fmt.Sprintf("S%d,%s", dLen, data)))
+	if e != nil {
+		log.Println("proxy client send write request failed !", e)
 	}
 }
 
 func (c *client) processProxyWriteResponse() bool {
-	op,e:=c.r.ReadByte()
+	op, e := c.r.ReadByte()
 	if e != nil {
 		if e != io.EOF {
 			log.Println("close connection due to error:", e)
@@ -87,7 +83,7 @@ func (c *client) processProxyWriteResponse() bool {
 			log.Println("proxy client write response failed !", e)
 			return false
 		}
-		if strings.Compare(string(v),"f") == 0 {
+		if strings.Compare(string(v), "f") == 0 {
 			log.Println("client write request failed !")
 			return false
 		}
@@ -97,15 +93,14 @@ func (c *client) processProxyWriteResponse() bool {
 	return false
 }
 
-
 func (tc *tcpClient) ExecuteProxyWrite(data []byte) bool {
-	c:=newClient(tc.serverAddr)
+	c := newClient(tc.serverAddr)
 	c.proxyWriteRequest(data)
 	return c.processProxyWriteResponse()
 }
 
 func (c *client) processWriteResponse(wp *point.WritePoint) {
-	op,e:=c.r.ReadByte()
+	op, e := c.r.ReadByte()
 	if e != nil {
 		if e != io.EOF {
 			log.Println("close connection due to error:", e)
@@ -117,30 +112,29 @@ func (c *client) processWriteResponse(wp *point.WritePoint) {
 		if e != nil {
 			log.Println("proxy client write response failed !", e)
 		}
-		if strings.Compare(string(v),"f") == 0 {
+		if strings.Compare(string(v), "f") == 0 {
 			log.Println("client write request failed !")
 		}
 	}
 }
 
 func (tc *tcpClient) ExecuteRead(rp *point.ReadPoint) {
-	c:=newClient(tc.serverAddr)
+	c := newClient(tc.serverAddr)
 	c.readRequest(rp)
 	c.processReadResponse()
 }
 
-
-func (tc *tcpClient) ExecuteProxyRead(data []byte,rp chan *point.ReadPoint) {
-	c:=newClient(tc.serverAddr)
-	dLen:=len(data)
-	_,e:=c.Write([]byte(fmt.Sprintf("P%d,%s",dLen,data)))
-	if e !=nil {
-		log.Println("client send proxy read request failed !",e)
+func (tc *tcpClient) ExecuteProxyRead(data []byte, rp chan *point.ReadPoint) {
+	c := newClient(tc.serverAddr)
+	dLen := len(data)
+	_, e := c.Write([]byte(fmt.Sprintf("P%d,%s", dLen, data)))
+	if e != nil {
+		log.Println("client send proxy read request failed !", e)
 	}
 	c.processProxyReadResponse(rp)
 }
 
-func (c *client) processProxyReadResponse(rp chan *point.ReadPoint)  {
+func (c *client) processProxyReadResponse(rp chan *point.ReadPoint) {
 	op, e := c.r.ReadByte()
 	if e != nil {
 		if e != io.EOF {
@@ -158,26 +152,26 @@ func (c *client) processProxyReadResponse(rp chan *point.ReadPoint)  {
 			log.Println("client read proxy response failed !", e)
 			return
 		}
-		data:=&point.ReadPoint{}
-		e=proto.Unmarshal(v,data)
+		data := &point.ReadPoint{}
+		e = proto.Unmarshal(v, data)
 		if e != nil {
-			log.Println(" proxy readPoint deserialization failed ! ",e.Error())
+			log.Println(" proxy readPoint deserialization failed ! ", e.Error())
 			return
 		}
-		rp <-data
+		rp <- data
 	}
 	return
 }
 
 func (c *client) readRequest(rp *point.ReadPoint) {
-	data,e:=proto.Marshal(rp)
-	if e !=nil {
+	data, e := proto.Marshal(rp)
+	if e != nil {
 		log.Println(e.Error())
 	}
-	dLen:=len(data)
-	_,e=c.Write([]byte(fmt.Sprintf("G%d,%s",dLen,data)))
-	if e !=nil {
-		log.Println("client send read request failed !",e)
+	dLen := len(data)
+	_, e = c.Write([]byte(fmt.Sprintf("G%d,%s", dLen, data)))
+	if e != nil {
+		log.Println("client send read request failed !", e)
 	}
 }
 
@@ -199,15 +193,15 @@ func (c *client) processReadResponse() {
 			log.Println("client read response failed !", e)
 			return
 		}
-		data:=&point.ReadPoint{}
-		e=proto.Unmarshal(v,data)
+		data := &point.ReadPoint{}
+		e = proto.Unmarshal(v, data)
 		if e != nil {
-			log.Println(" readPoint deserialization failed ! ",e.Error())
+			log.Println(" readPoint deserialization failed ! ", e.Error())
 			return
 		}
-		for _,value:=range data.Metrics {
-			for tt,vv:=range value.Metric {
-				log.Println(tt,utils.TransByteToData(value.MetricType,vv))
+		for _, value := range data.Metrics {
+			for tt, vv := range value.Metric {
+				log.Println(tt, utils.TransByteToData(value.MetricType, vv))
 			}
 		}
 	}
@@ -218,14 +212,14 @@ func (c *client) recvResponse() ([]byte, error) {
 	l1 := readLen(c.r)
 	vLen, e := strconv.Atoi(l1)
 	if vLen == 0 {
-		return nil,nil
+		return nil, nil
 	}
 	value := make([]byte, vLen)
 	_, e = io.ReadFull(c.r, value)
 	if e != nil {
-		return nil,e
+		return nil, e
 	}
-	return value,nil
+	return value, nil
 }
 
 func readLen(r *bufio.Reader) string {
@@ -238,4 +232,3 @@ func readLen(r *bufio.Reader) string {
 	}
 	return strings.ReplaceAll(tmp, ",", "")
 }
-

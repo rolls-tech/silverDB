@@ -167,4 +167,3 @@ func (e *BooleanDecoder) Read() bool {
 func (e *BooleanDecoder) Error() error {
 	return e.err
 }
-
