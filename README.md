@@ -1,30 +1,36 @@
 
 
-**SilverDB**
+# **SilverDB**
 
 SilverDB is an open source distributed time series database. This includes APIs for storing and querying data, processing and more. The master branch on this repo now represents the original SilverDB.
 
-**Features**
+## **Features**
+
 1、Distributed read and write for time-series data and storage based on boltdb 
+
 2、Compression for data types,such as timestamp、float64、Integer、String、Boolean
+
 3、Support metircs and tags retrieval within time range 
+
 4、Support the storage of tags index data 
+
 5、Support wal log and memory caching 
+
 6、Support silverDB node,databasea and table metadata registration based on etcd 
 
-**State of the project**  
+## **State of the project**  
 
 The SilverDB that is on the master branch is currently in the beta stage. This means that it is still **NOT** recommended for production usage.。dev-1.0 branch is improving  tests、features for storage、write、read.  
 
-**Notice** 
+### **Notice** 
 
 SilverDB is a distributed time-series database project that just begin to design and develop , and is still in the initial inclubation stage.
 
 You can develop and debug some features of SilverDB  in the local environment,such as storage,read and write。
 
-**Building From Source**
+## **Building From Source**
 
-Prerequisites for building SilverDB: 
+### Prerequisites for building SilverDB: 
 
 This project requries Go 1.14 and Go module support 
 
@@ -36,7 +42,7 @@ protobuf  3.3.0+
 
 etcd 3.4.9
 
-**Configure SilverDB** 
+### **Configure SilverDB** 
 
 config.yaml 
 
@@ -82,22 +88,6 @@ cd silverDB
 
 go build node1.go  
 
-
-
-**Documention** 
+## **Documention** 
 
 The documentation of  SilverDB is located on the website: https://zhuanlan.zhihu.com/c_1256552728916017152 
-
-
-
-
-
-
-
-
-
-
-
-### 
-
-## 
