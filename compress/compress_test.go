@@ -1,14 +1,12 @@
-package main
+package compress
 
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"github.com/jwilder/encoding/simple8b"
 	"github.com/jwilder/encoding/simple9"
-	"github.com/prometheus/common/log"
 	"github.com/tj/go-rle"
-	"silver/compress"
+	"testing"
 )
 
 func runLength() {
@@ -25,7 +23,8 @@ func runLength() {
 
 }
 
-func main() {
+
+func dataCompress() {
 	enc := simple8b.NewEncoder()
 	in1 := make([]uint64, 10000)
 	in2 := make([]uint32, 10000)
@@ -43,9 +42,9 @@ func main() {
 	fmt.Printf("data len: %v, simple8b encoding len: %v \n", len(in1)*8, len(encoded1))
 	fmt.Printf("data len: %v ,simple9b encoding len: %v \n", len(in2)*4, len(encoded2)*4)
 	runLength()
-	b1 := compress.ZigZagInt64Encode(-23)
+	b1 := ZigZagInt64Encode(-23)
 	fmt.Println(b1)
-	b2 := compress.ZigZagInt64Decode(b1)
+	b2 := ZigZagInt64Decode(b1)
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, b2)
 
@@ -58,6 +57,12 @@ func main() {
 	fmt.Println(b)
 	b |= 1
 	fmt.Println(b)
+	fmt.Printf("data len: %v,zigzag encoding len: %v \n" ,len(buf.Bytes()), len(b1))
 
-	fmt.Printf("data len: %v,zigzag encoding len: %v \n", len(buf.Bytes()), len(b1))
 }
+
+
+func TestDataCompress  (t *testing.T) {
+	dataCompress()
+}
+

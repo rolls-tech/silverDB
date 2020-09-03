@@ -5,7 +5,12 @@
 SilverDB is an open source distributed time series database. This includes APIs for storing and querying data, processing and more. The master branch on this repo now represents the original SilverDB.
 
 **Features**
-
+1、Distributed read and write for time-series data and storage based on boltdb 
+2、Compression for data types,such as timestamp、float64、Integer、String、Boolean
+3、Support metircs and tags retrieval within time range 
+4、Support the storage of tags index data 
+5、Support wal log and memory caching 
+6、Support silverDB node,databasea and table metadata registration based on etcd 
 
 **State of the project**  
 
